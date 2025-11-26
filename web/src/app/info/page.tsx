@@ -22,6 +22,7 @@ type DailyLog = {
   shower?: "done" | "not done";
   supplement?: "done" | "not done";
   sleepTime?: string;
+   exerciseType?: string;
 };
 
 type ModalState =
@@ -31,6 +32,7 @@ type ModalState =
   | { type: "shower" }
   | { type: "supplement" }
   | { type: "sleep" }
+  | { type: "exercise" }
   | null;
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
@@ -57,6 +59,7 @@ export default function InfoPage() {
   const [formCalories, setFormCalories] = useState({ food: "", calories: "" });
   const [formWeight, setFormWeight] = useState("");
   const [formSleep, setFormSleep] = useState("");
+   const [formExercise, setFormExercise] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const dateKey = useMemo(() => todayKey(), []);
@@ -82,9 +85,11 @@ export default function InfoPage() {
       shower: data.shower,
       supplement: data.supplement,
       sleepTime: data.sleepTime,
+      exerciseType: data.exerciseType,
     });
     if (data.weight) setFormWeight(String(data.weight));
     if (data.sleepTime) setFormSleep(String(data.sleepTime));
+    if (data.exerciseType) setFormExercise(String(data.exerciseType));
   }, [dateKey]);
 
   useEffect(() => {
@@ -178,9 +183,9 @@ export default function InfoPage() {
     {
       key: "exercise",
       title: "Exercise",
-      badge: null,
-      ok: false,
-      onClick: () => {},
+      badge: dailyLog.exerciseType ?? null,
+      ok: Boolean(dailyLog.exerciseType),
+      onClick: () => setModal({ type: "exercise" }),
     },
     {
       key: "skinCare",
@@ -364,6 +369,48 @@ export default function InfoPage() {
                 >
                   Not done
                 </button>
+              </div>
+            </>
+          )}
+
+          {modal.type === "exercise" && (
+            <>
+              <h2 className="text-lg font-semibold text-slate-900">Exercise</h2>
+              <div className="mt-3 space-y-3">
+                <label className="block text-sm font-medium text-slate-800">
+                  Select type
+                  <select
+                    value={formExercise}
+                    onChange={(e) => setFormExercise(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                  >
+                    <option value="">Choose...</option>
+                    <option value="gym">gym</option>
+                    <option value="run">run</option>
+                    <option value="hike">hike</option>
+                    <option value="swim">swim</option>
+                    <option value="bike">bike</option>
+                  </select>
+                </label>
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={() => {
+                      if (!formExercise) return;
+                      saveDailyField("exerciseType", formExercise);
+                      setModal(null);
+                    }}
+                    disabled={loading}
+                    className="flex-1 rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-300"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setModal(null)}
+                    className="flex-1 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </>
           )}
