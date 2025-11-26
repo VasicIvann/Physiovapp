@@ -1,4 +1,5 @@
 import { getApp, getApps, initializeApp, type FirebaseOptions } from "firebase/app";
+import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig: FirebaseOptions = {
@@ -21,3 +22,4 @@ const firebaseApp = isFirebaseConfigured
   : undefined;
 
 export const db = firebaseApp ? getFirestore(firebaseApp) : undefined;
+export const auth = firebaseApp ? getAuth(firebaseApp) : undefined;
