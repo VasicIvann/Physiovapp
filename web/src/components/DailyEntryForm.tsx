@@ -62,7 +62,7 @@ export function DailyEntryForm() {
     setStatus("idle");
 
     try {
-      await addDoc(collection(db, "entries"), {
+      await addDoc(collection(db!, "entries"), {
         energy: Number(formState.energy),
         mobility: Number(formState.mobility),
         focus: Number(formState.focus),

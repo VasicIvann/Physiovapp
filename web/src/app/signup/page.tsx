@@ -28,7 +28,7 @@ export default function SignUpPage() {
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(cred.user, { displayName: name });
-      await setDoc(doc(db, "users", cred.user.uid), {
+      await setDoc(doc(db!, "users", cred.user.uid), {
         name,
         email,
         birthdate,

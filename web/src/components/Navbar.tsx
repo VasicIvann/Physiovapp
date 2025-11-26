@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, isFirebaseConfigured } from "@/lib/firebase";
@@ -21,14 +20,7 @@ export function Navbar() {
     <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-md items-center justify-between px-4">
         <div className="flex items-center gap-2">
-          <Image
-            src="/physiovapp_v2.png"
-            alt="Physiovapp"
-            width={32}
-            height={32}
-            className="h-8 w-8 rounded-md object-cover"
-            priority
-          />
+          <img src="/physiovapp_v2.png" alt="Physiovapp" className="h-8 w-8 rounded-md object-cover" />
           <p className="text-sm font-semibold text-slate-800">Welcome</p>
         </div>
         <nav className="flex items-center gap-3 text-slate-700">

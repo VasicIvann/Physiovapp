@@ -66,7 +66,7 @@ export default function InfoPage() {
 
   const fetchCalories = useCallback(async (uid: string) => {
     if (!db) return;
-    const q = query(collection(db, "calories"), where("userId", "==", uid), where("date", "==", dateKey));
+    const q = query(collection(db!, "calories"), where("userId", "==", uid), where("date", "==", dateKey));
     const snaps = await getDocs(q);
     const total = snaps.docs.reduce((acc, docSnap) => {
       const data = docSnap.data() as { calories?: number };
@@ -77,7 +77,7 @@ export default function InfoPage() {
 
   const fetchDailyLog = useCallback(async (uid: string) => {
     if (!db) return;
-    const snap = await getDoc(doc(db, "dailyLogs", `${uid}_${dateKey}`));
+    const snap = await getDoc(doc(db!, "dailyLogs", `${uid}_${dateKey}`));
     const data = (snap.data() as DocumentData | undefined) ?? {};
     setDailyLog({
       weight: data.weight,
@@ -124,7 +124,7 @@ export default function InfoPage() {
     setError(null);
     try {
       await setDoc(
-        doc(db, "dailyLogs", `${userId}_${dateKey}`),
+        doc(db!, "dailyLogs", `${userId}_${dateKey}`),
         { userId, date: dateKey, [field]: value },
         { merge: true },
       );
@@ -144,7 +144,7 @@ export default function InfoPage() {
     setLoading(true);
     setError(null);
     try {
-      await addDoc(collection(db, "calories"), {
+      await addDoc(collection(db!, "calories"), {
         userId,
         userName: displayName ?? "",
         date: dateKey,

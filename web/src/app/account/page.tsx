@@ -33,7 +33,7 @@ export default function AccountPage() {
         return;
       }
       try {
-        const snap = await getDoc(doc(db, "users", currentUser.uid));
+        const snap = await getDoc(doc(db!, "users", currentUser.uid));
         const data = snap.data() as UserProfile | undefined;
         const name = data?.name ?? currentUser.displayName ?? "";
         const birthdate = data?.birthdate ?? "";
@@ -74,7 +74,7 @@ export default function AccountPage() {
       }
       if (newBirthdate !== userProfile?.birthdate) {
         await setDoc(
-          doc(db, "users", auth.currentUser.uid),
+          doc(db!, "users", auth.currentUser.uid),
           { name: newName || userProfile?.name || "", birthdate: newBirthdate, email: auth.currentUser.email ?? "" },
           { merge: true },
         );
