@@ -196,7 +196,41 @@ export default function StatPage() {
     return { yMin: yMinCandidate, yMax: yMaxCandidate, ticks };
   }, [isBinaryMetric, values]);
 
-  const hasData = values.some((v) => v > 0);
+  const labelEvery = useMemo(() => {
+    if (timeRange === "30d") return 4;
+    if (timeRange === "365d") return 30;
+    return 1;
+  }, [timeRange]);
+
+  const labelIndexesToShow = useMemo(() => {
+    const indices = new Set<number>();
+    if (dates.length === 0) return indices;
+    if (labelEvery === 1) {
+      dates.forEach((_, idx) => indices.add(idx));
+      return indices;
+    }
+    const lastIndex = dates.length - 1;
+    for (let idx = lastIndex; idx >= 0; idx--) {
+      if ((lastIndex - idx) % labelEvery === 0) {
+        indices.add(idx);
+      }
+    }
+    return indices;
+  }, [dates, labelEvery]);
+
+  const metricNumbers = useMemo(() => {
+    return values.filter((v) => typeof v === "number" && v > 0) as number[];
+  }, [values]);
+
+  const metricStats = useMemo(() => {
+    if (metricNumbers.length === 0) return null;
+    const min = Math.min(...metricNumbers);
+    const max = Math.max(...metricNumbers);
+    const avg = metricNumbers.reduce((sum, v) => sum + v, 0) / metricNumbers.length;
+    return { min, max, avg };
+  }, [metricNumbers]);
+
+  const hasData = values.some((v) => typeof v === "number" && v > 0);
 
   if (!isFirebaseConfigured) {
     return (
@@ -251,7 +285,7 @@ export default function StatPage() {
           ) : (
             <div className="space-y-3">
               {!hasData && <p className="text-sm text-slate-500">Aucune donnee sur la periode selectionnee.</p>}
-              <div className="flex h-64 gap-3">
+              <div className="flex h-64 overflow-hidden">
                 <div className="flex w-12 flex-col justify-between text-[10px] font-semibold text-slate-500">
                   {ticks
                     .slice()
@@ -272,16 +306,20 @@ export default function StatPage() {
                       <div key={idx} className="h-px w-full bg-slate-200/70" />
                     ))}
                   </div>
-                  <div className="relative flex h-full items-end gap-2">
+                  <div
+                    className="relative grid h-full items-end"
+                    style={{
+                      gridTemplateColumns: `repeat(${dates.length}, minmax(0, 1fr))`,
+                      columnGap: timeRange === "30d" ? "4px" : timeRange === "365d" ? "2px" : "8px",
+                    }}
+                  >
                     {dates.map((date, idx) => {
                       const value = values[idx];
                       if (value === null || value === undefined) {
                         return (
-                          <div key={date} className="flex h-full flex-1 flex-col items-center justify-end gap-1 text-[10px]">
+                          <div key={date} className="flex h-full flex-col items-center justify-end gap-1 text-[10px]">
                             <div className="flex w-full items-end justify-center rounded-t-md bg-slate-200/60" style={{ height: "4%" }} />
-                            <span className="text-[10px] text-slate-400">
-                              {new Date(date).getMonth() + 1}/{new Date(date).getDate()}
-                            </span>
+                            <span className="text-[10px] text-transparent">{"00/00"}</span>
                           </div>
                         );
                       }
@@ -289,19 +327,22 @@ export default function StatPage() {
                       const heightPercent = Math.max(4, Math.min(100, normalized * 100));
                       const label = new Date(date);
                       const labelText = `${label.getMonth() + 1}/${label.getDate()}`;
+                      const showLabel = labelIndexesToShow.has(idx);
                       const displayValue =
                         metric === "sleepTime" ? formatHoursToHHMM(value) : Number.isInteger(value) ? value : value.toFixed(2);
                       return (
-                        <div key={date} className="flex h-full flex-1 flex-col items-center justify-end gap-1 text-[10px]">
+                        <div key={date} className="flex h-full flex-col items-center justify-end gap-1 text-[10px]">
                           <div
-                            className="flex w-full items-end justify-center rounded-t-md bg-sky-500 shadow-sm transition-all"
+                            className="relative flex w-full items-end justify-center overflow-visible rounded-t-md bg-sky-500 shadow-sm transition-all"
                             style={{ height: `${heightPercent}%` }}
                           >
                             {value > 0 && (
-                              <span className="mb-1 text-[10px] font-semibold text-white">{displayValue}</span>
+                              <span className="absolute -top-5 whitespace-nowrap rounded bg-white/90 px-1 text-[9px] font-semibold text-sky-700 shadow">
+                                {displayValue}
+                              </span>
                             )}
                           </div>
-                          <span className="text-[10px] text-slate-500">{labelText}</span>
+                          <span className={`text-[10px] ${showLabel ? "text-slate-500" : "text-transparent"}`}>{labelText}</span>
                         </div>
                       );
                     })}
@@ -311,6 +352,33 @@ export default function StatPage() {
             </div>
           )}
         </div>
+      </section>
+      <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
+        <h2 className="text-sm font-semibold text-slate-900">Métriques</h2>
+        {metricStats ? (
+          <div className="mt-3 grid grid-cols-3 gap-3 text-sm font-semibold text-slate-900">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Min</p>
+              <p className="text-base">
+                {metric === "sleepTime" ? formatHoursToHHMM(metricStats.min) : metricStats.min.toFixed(2)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Max</p>
+              <p className="text-base">
+                {metric === "sleepTime" ? formatHoursToHHMM(metricStats.max) : metricStats.max.toFixed(2)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Moyenne</p>
+              <p className="text-base">
+                {metric === "sleepTime" ? formatHoursToHHMM(metricStats.avg) : metricStats.avg.toFixed(2)}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-slate-500">Pas de données non nulles sur la période.</p>
+        )}
       </section>
     </div>
   );
