@@ -26,11 +26,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} bg-slate-100 antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} bg-[#FAFAFA] text-neutral-900 antialiased selection:bg-indigo-500 selection:text-white`}
       >
-        <div className="min-h-screen">
+        <div className="min-h-screen relative flex flex-col">
           <Navbar />
-          <main className="mx-auto max-w-md px-4 pb-12 pt-6">{children}</main>
+          {/* Padding top adjusted for floating navbar */}
+          <main className="flex-1 w-full max-w-md mx-auto px-5 pb-24 pt-6">
+            {children}
+          </main>
         </div>
       </body>
     </html>

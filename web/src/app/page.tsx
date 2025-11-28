@@ -60,44 +60,49 @@ function MiniChart({ title, dates, values, formatter }: MiniChartProps) {
   }, [hasData, numericValues]);
 
   return (
-    <div className="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-sm font-semibold text-slate-900">{title}</p>
-      <div className="mt-3 h-32">
+    <div className="flex min-w-0 flex-col rounded-3xl border border-neutral-100 bg-neutral-50/50 p-4 transition-all hover:bg-neutral-50">
+      <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">{title}</p>
+      <div className="mt-3 h-24">
         <div className="relative h-full">
+          {/* Lignes de la grille (plus subtiles) */}
           <div className="absolute inset-0 flex flex-col justify-between">
             {ticks.map((_, idx) => (
-              <div key={idx} className="h-px w-full bg-slate-200/50" />
+              <div key={idx} className="h-px w-full bg-neutral-200/40 border-t border-dashed border-neutral-200/60" />
             ))}
           </div>
+          {/* Barres du graphique */}
           <div
             className="relative grid h-full items-end"
             style={{
               gridTemplateColumns: `repeat(${dates.length}, minmax(0, 1fr))`,
-              columnGap: dates.length > 10 ? "2px" : "6px",
+              columnGap: "6px",
             }}
           >
             {dates.map((date, idx) => {
               const value = values[idx];
               if (value === null || value === undefined) {
-                return <div key={date} className="h-full rounded-t-md bg-slate-200/60" />;
+                return <div key={date} className="h-full rounded-t-sm bg-neutral-100/50" />;
               }
               const normalized = (value - yMin) / (yMax - yMin || 1);
               const heightPercent = Math.max(4, Math.min(100, normalized * 100));
               const labelDate = new Date(date);
-              const shortLabel = `${labelDate.getMonth() + 1}/${labelDate.getDate()}`;
+              const shortLabel = `${labelDate.getDate()}`;
+              
               return (
-                <div key={date} className="flex h-full flex-col items-center justify-end gap-1 text-[9px]">
+                <div key={date} className="group flex h-full flex-col items-center justify-end gap-1">
                   <div
-                    className="relative flex w-full items-end justify-center overflow-visible rounded-t-md bg-sky-500 shadow-sm transition-all"
+                    className="relative flex w-full items-end justify-center rounded-t-md bg-indigo-500 shadow-sm transition-all group-hover:bg-indigo-600"
                     style={{ height: `${heightPercent}%` }}
                   >
-                    {value > 0 && (
-                      <span className="absolute -top-4 rounded bg-white/90 px-1 text-[8px] font-semibold text-sky-700 shadow">
+                    {/* Tooltip au survol */}
+                    <div className="absolute -top-8 hidden flex-col items-center group-hover:flex z-10">
+                       <span className="whitespace-nowrap rounded-lg bg-neutral-900 px-2 py-1 text-[10px] font-bold text-white shadow-lg">
                         {formatter ? formatter(value) : value}
                       </span>
-                    )}
+                      <div className="h-1 w-1 rotate-45 bg-neutral-900"></div>
+                    </div>
                   </div>
-                  <span className="text-[8px] text-slate-400">{shortLabel}</span>
+                  <span className="text-[9px] font-medium text-neutral-400">{shortLabel}</span>
                 </div>
               );
             })}
@@ -185,22 +190,36 @@ export default function Home() {
   );
 
   return (
-    <div className="space-y-4 pb-6">
-      <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
-        <div className="flex items-center justify-between">
-          <h1 className="text-base font-semibold text-slate-900">Vue rapide · Dernière semaine</h1>
-          <Link href="/stat" className="text-sm font-semibold text-sky-600 hover:underline">
-            Voir plus
+    <div className="space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      
+      {/* En-tête de bienvenue (optionnel, pour l'esthétique) */}
+      <div className="px-1">
+        <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Tableau de bord</h1>
+        <p className="text-neutral-500">Tes performances de la semaine.</p>
+      </div>
+
+      {/* Section Graphiques */}
+      <section className="relative overflow-hidden rounded-3xl bg-white p-5 shadow-[0_2px_20px_rgba(0,0,0,0.04)] border border-neutral-100">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
+            <h2 className="text-sm font-bold text-neutral-900">Aperçu Hebdomadaire</h2>
+          </div>
+          <Link href="/stat" className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-600 transition hover:bg-indigo-100">
+            Détails &rarr;
           </Link>
         </div>
+
         {!isFirebaseConfigured || !userId ? (
-          <p className="text-sm text-slate-600">Connecte-toi et configure Firebase pour voir les graphiques.</p>
+          <div className="rounded-2xl bg-neutral-50 p-6 text-center">
+            <p className="text-sm font-medium text-neutral-600">Connecte-toi et configure Firebase pour voir les graphiques.</p>
+          </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <MiniChart title="Calories / jour" dates={dates} values={caloriesValues} />
-            <MiniChart title="Activités sportives" dates={dates} values={activitiesValues} />
+            <MiniChart title="Calories" dates={dates} values={caloriesValues} />
+            <MiniChart title="Activités" dates={dates} values={activitiesValues} />
             <MiniChart
-              title="Sommeil (h)"
+              title="Sommeil"
               dates={dates}
               values={sleepValues}
               formatter={(v) => formatHoursToHHMM(v)}
@@ -209,35 +228,48 @@ export default function Home() {
         )}
       </section>
 
-      <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
-        <p className="text-sm font-medium text-slate-700">Capture quick info and routines.</p>
+      {/* Grille d'actions rapides (Style Bento) */}
+      <div className="grid grid-cols-2 gap-4">
+        
+        {/* Carte Journal */}
         <Link
           href="/info"
-          className="mt-4 flex w-full items-center justify-center rounded-lg bg-sky-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-700"
+          className="group relative col-span-1 overflow-hidden rounded-3xl bg-white p-5 shadow-sm border border-neutral-100 transition-all hover:shadow-md hover:-translate-y-0.5 active:scale-95"
         >
-          add information
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 mb-3 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300">
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+          </div>
+          <h3 className="font-bold text-neutral-900 text-base">Journal</h3>
+          <p className="text-xs text-neutral-500 mt-1 font-medium">Saisir ma journée</p>
         </Link>
-      </section>
 
-      <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
-        <p className="text-sm font-medium text-slate-700">Consulte tes points et recompenses.</p>
+        {/* Carte Points */}
         <Link
           href="/points"
-          className="mt-4 flex w-full items-center justify-center rounded-lg bg-sky-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-700"
+          className="group relative col-span-1 overflow-hidden rounded-3xl bg-white p-5 shadow-sm border border-neutral-100 transition-all hover:shadow-md hover:-translate-y-0.5 active:scale-95"
         >
-          access points
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 mb-3 group-hover:bg-amber-500 group-hover:text-white transition-colors duration-300">
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" /></svg>
+          </div>
+          <h3 className="font-bold text-neutral-900 text-base">Points</h3>
+          <p className="text-xs text-neutral-500 mt-1 font-medium">Voir mon rang</p>
         </Link>
-      </section>
 
-      <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
-        <p className="text-sm font-medium text-slate-700">Organize your tasks and daily checks.</p>
+        {/* Carte Todo (Large) */}
         <Link
           href="/todo"
-          className="mt-4 flex w-full items-center justify-center rounded-lg bg-sky-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-700"
+          className="group relative col-span-2 flex items-center justify-between overflow-hidden rounded-3xl bg-neutral-900 p-5 text-white shadow-lg shadow-neutral-200 transition-all hover:shadow-xl hover:-translate-y-0.5 active:scale-95"
         >
-          access TODO
+          <div>
+            <h3 className="font-bold text-lg">Mes Tâches</h3>
+            <p className="text-xs text-neutral-400 mt-1 font-medium">Gérer mes routines quotidiennes</p>
+          </div>
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-800 border border-neutral-700 group-hover:bg-white group-hover:text-black transition-colors duration-300">
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4" strokeLinecap="round" strokeLinejoin="round"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </div>
         </Link>
-      </section>
+
+      </div>
     </div>
   );
 }
