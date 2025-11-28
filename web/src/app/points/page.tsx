@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -6,6 +7,7 @@ import { collection, getDocs, query, where, setDoc, doc } from "firebase/firesto
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db, isFirebaseConfigured } from "@/lib/firebase";
 import { computePointsFromLogs, type DailyLogEntry, type PointsSummary } from "@/lib/pointsRules";
+const rankOrder = ["iron", "bronze", "silver", "gold", "plat", "diam", "asc", "imo", "rad"] as const;
 
 export default function PointsPage() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -66,6 +68,34 @@ export default function PointsPage() {
   return (
     <div className="space-y-4 pb-16">
       <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
+        <div className="mb-4 flex flex-col gap-2">
+          <h2 className="text-sm font-semibold text-slate-900">Rang</h2>
+          {summary ? (
+            <div className="flex items-center gap-3">
+              <img
+                src={`/rank/${summary.rank}.png`}
+                alt={summary.rank}
+                className="h-12 w-12 rounded-md border border-slate-200 bg-white object-contain"
+              />
+              <p className="text-sm font-semibold capitalize text-slate-800">{summary.rank}</p>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">Rang non disponible.</p>
+          )}
+          <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-9">
+            {rankOrder.map((rank) => (
+              <div
+                key={rank}
+                className={`flex items-center justify-center rounded-lg border ${
+                  summary?.rank === rank ? "border-sky-400 shadow" : "border-slate-200"
+                } bg-white p-2`}
+              >
+                <img src={`/rank/${rank}.png`} alt={rank} className="h-10 w-10 object-contain" />
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-semibold text-slate-900">Points</h1>
