@@ -22,7 +22,7 @@ type DailyLog = {
   shower?: "done" | "not done";
   supplement?: "done" | "not done";
   sleepTime?: string;
-   exerciseType?: string;
+  exercises?: string[];
 };
 
 type ModalState =
@@ -53,13 +53,16 @@ export default function InfoPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [caloriesTotal, setCaloriesTotal] = useState<number>(0);
+  const [proteinsTotal, setProteinsTotal] = useState<number>(0);
+  const [carbsTotal, setCarbsTotal] = useState<number>(0);
+  const [fatTotal, setFatTotal] = useState<number>(0);
   const [dailyLog, setDailyLog] = useState<DailyLog>({});
   const [modal, setModal] = useState<ModalState>(null);
   const [loading, setLoading] = useState(false);
-  const [formCalories, setFormCalories] = useState({ food: "", calories: "" });
+  const [formCalories, setFormCalories] = useState({ food: "", calories: "", proteins: "", carbs: "", fat: "" });
   const [formWeight, setFormWeight] = useState("");
   const [formSleep, setFormSleep] = useState("");
-   const [formExercise, setFormExercise] = useState("");
+  const [formExercise, setFormExercise] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const dateKey = useMemo(() => todayKey(), []);
@@ -68,11 +71,21 @@ export default function InfoPage() {
     if (!db) return;
     const q = query(collection(db!, "calories"), where("userId", "==", uid), where("date", "==", dateKey));
     const snaps = await getDocs(q);
-    const total = snaps.docs.reduce((acc, docSnap) => {
-      const data = docSnap.data() as { calories?: number };
-      return acc + (Number(data.calories) || 0);
-    }, 0);
-    setCaloriesTotal(total);
+    let calories = 0;
+    let proteins = 0;
+    let carbs = 0;
+    let fat = 0;
+    snaps.docs.forEach((docSnap) => {
+      const data = docSnap.data() as { calories?: number; proteins?: number; carbs?: number; fat?: number };
+      calories += Number(data.calories) || 0;
+      proteins += Number(data.proteins) || 0;
+      carbs += Number(data.carbs) || 0;
+      fat += Number(data.fat) || 0;
+    });
+    setCaloriesTotal(calories);
+    setProteinsTotal(proteins);
+    setCarbsTotal(carbs);
+    setFatTotal(fat);
   }, [dateKey]);
 
   const fetchDailyLog = useCallback(async (uid: string) => {
@@ -85,11 +98,11 @@ export default function InfoPage() {
       shower: data.shower,
       supplement: data.supplement,
       sleepTime: data.sleepTime,
-      exerciseType: data.exerciseType,
+      exercises: Array.isArray(data.exercises) ? data.exercises : [],
     });
     if (data.weight) setFormWeight(String(data.weight));
     if (data.sleepTime) setFormSleep(String(data.sleepTime));
-    if (data.exerciseType) setFormExercise(String(data.exerciseType));
+    if (Array.isArray(data.exercises) && data.exercises.length > 0) setFormExercise("");
   }, [dateKey]);
 
   useEffect(() => {
@@ -115,6 +128,26 @@ export default function InfoPage() {
       return false;
     }
     return true;
+  };
+
+  const saveExercises = async (exercises: string[]) => {
+    if (!ensureUser()) return;
+    if (!db || !userId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await setDoc(
+        doc(db!, "dailyLogs", `${userId}_${dateKey}`),
+        { userId, date: dateKey, exercises },
+        { merge: true },
+      );
+      setDailyLog((prev) => ({ ...prev, exercises }));
+    } catch (err) {
+      console.error(err);
+      setError("Echec de l'enregistrement des exercices.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const saveDailyField = async (field: keyof DailyLog, value: string | number | undefined) => {
@@ -150,9 +183,12 @@ export default function InfoPage() {
         date: dateKey,
         food: formCalories.food.trim(),
         calories: Number(formCalories.calories),
+        proteins: Number(formCalories.proteins) || 0,
+        carbs: Number(formCalories.carbs) || 0,
+        fat: Number(formCalories.fat) || 0,
         createdAt: new Date().toISOString(),
       });
-      setFormCalories({ food: "", calories: "" });
+      setFormCalories({ food: "", calories: "", proteins: "", carbs: "", fat: "" });
       await fetchCalories(userId);
       setModal(null);
     } catch (err) {
@@ -169,7 +205,7 @@ export default function InfoPage() {
     {
       key: "calories",
       title: "Calorie tracking",
-      badge: caloriesTotal > 0 ? `${caloriesTotal} kcal` : null,
+      badge: caloriesTotal > 0 ? `${caloriesTotal} kcal | P${proteinsTotal} C${carbsTotal} F${fatTotal}` : null,
       ok: caloriesTotal > 0,
       onClick: () => setModal({ type: "calories" }),
     },
@@ -183,8 +219,8 @@ export default function InfoPage() {
     {
       key: "exercise",
       title: "Exercise",
-      badge: dailyLog.exerciseType ?? null,
-      ok: Boolean(dailyLog.exerciseType),
+      badge: dailyLog.exercises && dailyLog.exercises.length > 0 ? dailyLog.exercises.join(", ") : null,
+      ok: Boolean(dailyLog.exercises && dailyLog.exercises.length > 0),
       onClick: () => setModal({ type: "exercise" }),
     },
     {
@@ -243,6 +279,35 @@ export default function InfoPage() {
                     className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                   />
                 </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <label className="block text-sm font-medium text-slate-800">
+                    Proteins
+                    <input
+                      type="number"
+                      value={formCalories.proteins}
+                      onChange={(e) => setFormCalories((prev) => ({ ...prev, proteins: e.target.value }))}
+                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                    />
+                  </label>
+                  <label className="block text-sm font-medium text-slate-800">
+                    Carbs
+                    <input
+                      type="number"
+                      value={formCalories.carbs}
+                      onChange={(e) => setFormCalories((prev) => ({ ...prev, carbs: e.target.value }))}
+                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                    />
+                  </label>
+                  <label className="block text-sm font-medium text-slate-800">
+                    Fat
+                    <input
+                      type="number"
+                      value={formCalories.fat}
+                      onChange={(e) => setFormCalories((prev) => ({ ...prev, fat: e.target.value }))}
+                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                    />
+                  </label>
+                </div>
                 <div className="flex gap-2 pt-2">
                   <button
                     onClick={handleCaloriesSubmit}
@@ -385,6 +450,7 @@ export default function InfoPage() {
                     className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                   >
                     <option value="">Choose...</option>
+                    <option value="none">None</option>
                     <option value="gym">gym</option>
                     <option value="run">run</option>
                     <option value="hike">hike</option>
@@ -394,22 +460,54 @@ export default function InfoPage() {
                 </label>
                 <div className="flex gap-2 pt-2">
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       if (!formExercise) return;
-                      saveDailyField("exerciseType", formExercise);
-                      setModal(null);
+                      if (formExercise === "none") {
+                        await saveExercises([]);
+                        setFormExercise("");
+                        return;
+                      }
+                      const next = Array.from(new Set([...(dailyLog.exercises ?? []), formExercise]));
+                      await saveExercises(next);
+                      setFormExercise("");
                     }}
                     disabled={loading}
                     className="flex-1 rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-300"
                   >
-                    Save
+                    Add
                   </button>
                   <button
                     onClick={() => setModal(null)}
                     className="flex-1 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
                   >
-                    Cancel
+                    Close
                   </button>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Selected today</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {(dailyLog.exercises ?? []).length === 0 && (
+                      <span className="text-xs text-slate-500">None</span>
+                    )}
+                    {(dailyLog.exercises ?? []).map((ex) => (
+                      <span
+                        key={ex}
+                        className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-800 ring-1 ring-slate-200"
+                      >
+                        {ex}
+                        <button
+                          type="button"
+                          className="text-rose-600"
+                          onClick={async () => {
+                            const next = (dailyLog.exercises ?? []).filter((item) => item !== ex);
+                            await saveExercises(next);
+                          }}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             </>
