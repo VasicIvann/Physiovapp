@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db, isFirebaseConfigured } from "@/lib/firebase";
@@ -380,6 +381,12 @@ export default function StatPage() {
           <p className="mt-3 text-sm text-slate-500">Pas de données non nulles sur la période.</p>
         )}
       </section>
+      <Link
+        href="/"
+        className="fixed bottom-6 right-6 rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-lg ring-1 ring-rose-300 transition hover:bg-rose-700"
+      >
+        come back
+      </Link>
     </div>
   );
 }

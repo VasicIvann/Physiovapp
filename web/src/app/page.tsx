@@ -62,19 +62,11 @@ function MiniChart({ title, dates, values, formatter }: MiniChartProps) {
   return (
     <div className="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <p className="text-sm font-semibold text-slate-900">{title}</p>
-      <div className="mt-3 flex h-32">
-        <div className="flex w-10 flex-col justify-between text-[9px] font-semibold text-slate-500">
-          {ticks
-            .slice()
-            .reverse()
-            .map((tick) => (
-              <span key={tick}>{formatter ? formatter(tick) : Number.isInteger(tick) ? tick : tick.toFixed(1)}</span>
-            ))}
-        </div>
-        <div className="relative flex-1">
+      <div className="mt-3 h-32">
+        <div className="relative h-full">
           <div className="absolute inset-0 flex flex-col justify-between">
             {ticks.map((_, idx) => (
-              <div key={idx} className="h-px w-full bg-slate-200/70" />
+              <div key={idx} className="h-px w-full bg-slate-200/50" />
             ))}
           </div>
           <div
@@ -224,6 +216,16 @@ export default function Home() {
           className="mt-4 flex w-full items-center justify-center rounded-lg bg-sky-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-700"
         >
           add information
+        </Link>
+      </section>
+
+      <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
+        <p className="text-sm font-medium text-slate-700">Consulte tes points et recompenses.</p>
+        <Link
+          href="/points"
+          className="mt-4 flex w-full items-center justify-center rounded-lg bg-sky-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-700"
+        >
+          access points
         </Link>
       </section>
 
