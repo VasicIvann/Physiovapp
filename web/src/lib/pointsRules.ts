@@ -16,7 +16,7 @@ export type PointsSummary = {
   rank: string;
 };
 
-const parseSleepToHours = (value?: string) => {
+export const parseSleepToHours = (value?: string) => {
   if (!value || !value.includes(":")) return null;
   const [h, m] = value.split(":").map((n) => Number(n));
   if (Number.isNaN(h) || Number.isNaN(m)) return null;
@@ -31,7 +31,7 @@ const startOfWeekKey = (dateStr: string) => {
   return d.toISOString().slice(0, 10);
 };
 
-const computeDailyPoints = (log: DailyLogEntry) => {
+export const computeDailyPoints = (log: DailyLogEntry) => {
   let points = 0;
 
   // Weight

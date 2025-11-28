@@ -6,7 +6,7 @@ import Link from "next/link";
 import { collection, getDocs, query, where, setDoc, doc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db, isFirebaseConfigured } from "@/lib/firebase";
-import { computePointsFromLogs, type DailyLogEntry, type PointsSummary } from "@/lib/pointsRules";
+import { computePointsFromLogs, computeDailyPoints, type DailyLogEntry, type PointsSummary } from "@/lib/pointsRules";
 const rankOrder = ["iron", "bronze", "silver", "gold", "plat", "diam", "asc", "imo", "rad"] as const;
 
 export default function PointsPage() {
@@ -14,6 +14,7 @@ export default function PointsPage() {
   const [summary, setSummary] = useState<PointsSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [logs, setLogs] = useState<DailyLogEntry[]>([]);
 
   useEffect(() => {
     if (!auth || !db || !isFirebaseConfigured) return;
@@ -43,6 +44,7 @@ export default function PointsPage() {
 
       const computed = computePointsFromLogs(logs);
       setSummary(computed);
+      setLogs(logs);
 
       await setDoc(doc(db!, "points", uid), {
         userId: uid,
@@ -64,6 +66,66 @@ export default function PointsPage() {
       { label: "Hebdo (somme)", value: summary.weeklyPoints },
     ];
   }, [summary]);
+
+  const lastWeekDates = useMemo(() => {
+    const today = new Date();
+    const dates: string[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      dates.push(d.toISOString().slice(0, 10));
+    }
+    return dates;
+  }, []);
+
+  const pointsLastWeek = useMemo(() => {
+    const byDate = new Map<string, DailyLogEntry>();
+    logs.forEach((log) => {
+      if (log.date) byDate.set(log.date, log);
+    });
+    return lastWeekDates.map((date) => {
+      const entry = byDate.get(date);
+      return entry ? computeDailyPoints(entry) : 0;
+    });
+  }, [lastWeekDates, logs]);
+
+  const statsY = useMemo(() => {
+    const dataPoints = pointsLastWeek.filter((v) => typeof v === "number") as number[];
+    if (dataPoints.length === 0) return { yMin: 0, yMax: 1, ticks: [0, 0.25, 0.5, 0.75, 1] };
+    const rawMin = Math.min(0, ...dataPoints);
+    const rawMax = Math.max(0, ...dataPoints);
+    const range = rawMax - rawMin || 1;
+    const padding = Math.max(range * 0.1, 1);
+    const yMin = rawMin - padding;
+    const yMax = rawMax + padding;
+    const step = (yMax - yMin) / 4 || 1;
+    const ticks = Array.from({ length: 5 }, (_, i) => yMin + step * i);
+    return { yMin, yMax, ticks };
+  }, [pointsLastWeek]);
+
+  const sortedLogs = useMemo(() => [...logs].sort((a, b) => a.date.localeCompare(b.date)), [logs]);
+
+  const totalPointsEvolution = useMemo(() => {
+    return lastWeekDates.map((date) => {
+      const subset = sortedLogs.filter((log) => log.date <= date);
+      const computed = computePointsFromLogs(subset);
+      return computed.totalPoints;
+    });
+  }, [lastWeekDates, sortedLogs]);
+
+  const totalStatsY = useMemo(() => {
+    const dataPoints = totalPointsEvolution.filter((v) => typeof v === "number") as number[];
+    if (dataPoints.length === 0) return { yMin: 0, yMax: 1, ticks: [0, 0.25, 0.5, 0.75, 1] };
+    const rawMin = Math.min(0, ...dataPoints);
+    const rawMax = Math.max(0, ...dataPoints);
+    const range = rawMax - rawMin || 1;
+    const padding = Math.max(range * 0.1, 1);
+    const yMin = rawMin - padding;
+    const yMax = rawMax + padding;
+    const step = (yMax - yMin) / 4 || 1;
+    const ticks = Array.from({ length: 5 }, (_, i) => yMin + step * i);
+    return { yMin, yMax, ticks };
+  }, [totalPointsEvolution]);
 
   return (
     <div className="space-y-4 pb-16">
@@ -132,6 +194,122 @@ export default function PointsPage() {
             ))}
           </div>
         )}
+      </section>
+
+      <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
+        <h2 className="text-sm font-semibold text-slate-900">Evolution des points journalier (derniere semaine)</h2>
+        <div className="mt-3 flex h-48">
+          <div className="flex w-12 flex-col justify-between text-[10px] font-semibold text-slate-500">
+            {statsY.ticks
+              .slice()
+              .reverse()
+              .map((tick) => (
+                <span key={tick}>{Number.isInteger(tick) ? tick : tick.toFixed(1)}</span>
+              ))}
+          </div>
+          <div className="relative flex-1">
+            <div className="absolute inset-0 flex flex-col justify-between">
+              {statsY.ticks.map((_, idx) => (
+                <div key={idx} className="h-px w-full bg-slate-200/70" />
+              ))}
+            </div>
+            <div
+              className="relative grid h-full items-end"
+              style={{
+                gridTemplateColumns: `repeat(${lastWeekDates.length}, minmax(0, 1fr))`,
+                columnGap: "6px",
+              }}
+            >
+              {lastWeekDates.map((date, idx) => {
+                const value = pointsLastWeek[idx];
+                const range = statsY.yMax - statsY.yMin || 1;
+                const zeroPos = ((0 - statsY.yMin) / range) * 100;
+                const barHeight = Math.max(2, (Math.abs(value) / range) * 100);
+                const bottom = value >= 0 ? zeroPos : zeroPos - barHeight;
+                const labelDate = new Date(date);
+                const shortLabel = `${labelDate.getMonth() + 1}/${labelDate.getDate()}`;
+                return (
+                  <div key={date} className="relative flex h-full flex-col items-center justify-end gap-1 text-[9px]">
+                    <div className="relative flex h-full w-full items-end">
+                      <div
+                        className="absolute left-0 right-0 flex items-end justify-center rounded-t-md bg-sky-500 shadow-sm transition-all"
+                        style={{
+                          height: `${barHeight}%`,
+                          bottom: `${Math.max(0, Math.min(100, bottom))}%`,
+                        }}
+                      >
+                        <span className="mb-1 text-[9px] font-semibold text-white">{value}</span>
+                      </div>
+                      <div
+                        className="absolute left-0 right-0 h-[1px] bg-slate-300/70"
+                        style={{ bottom: `${zeroPos}%` }}
+                      />
+                    </div>
+                    <span className="text-[8px] text-slate-400">{shortLabel}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
+        <h2 className="text-sm font-semibold text-slate-900">Evolution du score total (derniere semaine)</h2>
+        <div className="mt-3 flex h-48">
+          <div className="flex w-12 flex-col justify-between text-[10px] font-semibold text-slate-500">
+            {totalStatsY.ticks
+              .slice()
+              .reverse()
+              .map((tick) => (
+                <span key={tick}>{Number.isInteger(tick) ? tick : tick.toFixed(1)}</span>
+              ))}
+          </div>
+          <div className="relative flex-1">
+            <div className="absolute inset-0 flex flex-col justify-between">
+              {totalStatsY.ticks.map((_, idx) => (
+                <div key={idx} className="h-px w-full bg-slate-200/70" />
+              ))}
+            </div>
+            <div
+              className="relative grid h-full items-end"
+              style={{
+                gridTemplateColumns: `repeat(${lastWeekDates.length}, minmax(0, 1fr))`,
+                columnGap: "6px",
+              }}
+            >
+              {lastWeekDates.map((date, idx) => {
+                const value = totalPointsEvolution[idx];
+                const range = totalStatsY.yMax - totalStatsY.yMin || 1;
+                const zeroPos = ((0 - totalStatsY.yMin) / range) * 100;
+                const barHeight = Math.max(2, (Math.abs(value) / range) * 100);
+                const bottom = value >= 0 ? zeroPos : zeroPos - barHeight;
+                const labelDate = new Date(date);
+                const shortLabel = `${labelDate.getMonth() + 1}/${labelDate.getDate()}`;
+                return (
+                  <div key={date} className="relative flex h-full flex-col items-center justify-end gap-1 text-[9px]">
+                    <div className="relative flex h-full w-full items-end">
+                      <div
+                        className="absolute left-0 right-0 flex items-end justify-center rounded-t-md bg-emerald-500 shadow-sm transition-all"
+                        style={{
+                          height: `${barHeight}%`,
+                          bottom: `${Math.max(0, Math.min(100, bottom))}%`,
+                        }}
+                      >
+                        <span className="mb-1 text-[9px] font-semibold text-white">{value}</span>
+                      </div>
+                      <div
+                        className="absolute left-0 right-0 h-[1px] bg-slate-300/70"
+                        style={{ bottom: `${zeroPos}%` }}
+                      />
+                    </div>
+                    <span className="text-[8px] text-slate-400">{shortLabel}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </section>
 
       <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
