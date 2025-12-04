@@ -48,6 +48,7 @@ export const computeDailyPoints = (log: DailyLogEntry) => {
     else if (sleepHours < 6) points -= 2;
     else if (sleepHours < 7) points -= 1;
   }
+  else points -= 1;
 
   return points;
 };

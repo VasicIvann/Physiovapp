@@ -7,12 +7,28 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth, db, isFirebaseConfigured } from "@/lib/firebase";
 
 type TimeRangeKey = "7d" | "30d" | "365d";
-type MetricKey = "weight" | "calories" | "activities" | "sleepTime" | "skinCare" | "shower" | "supplement";
+type MetricKey =
+  | "weight"
+  | "calories"
+  | "protein"
+  | "carbs"
+  | "fat"
+  | "activities"
+  | "sleepTime"
+  | "skinCare"
+  | "shower"
+  | "supplement";
 
 type TimeRangeOption = { key: TimeRangeKey; label: string; days: number };
 type MetricOption = { key: MetricKey; label: string };
 
-type CalorieEntry = { date: string; calories?: number };
+type CalorieEntry = {
+  date: string;
+  calories?: number;
+  proteins?: number;
+  carbs?: number;
+  fat?: number;
+};
 type DailyLogEntry = {
   date: string;
   weight?: number;
@@ -32,6 +48,9 @@ const timeRanges: TimeRangeOption[] = [
 const metrics: MetricOption[] = [
   { key: "weight", label: "Poids" },
   { key: "calories", label: "Calories / jour" },
+  { key: "protein", label: "Proteines / jour" },
+  { key: "carbs", label: "Glucides / jour" },
+  { key: "fat", label: "Lipides / jour" },
   { key: "activities", label: "Nb activites sportives / jour" },
   { key: "sleepTime", label: "Temps de sommeil" },
   { key: "skinCare", label: "Skin care (binaire)" },
@@ -69,6 +88,9 @@ const formatHoursToHHMM = (hoursValue: number) => {
 export default function StatPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [caloriesByDate, setCaloriesByDate] = useState<Record<string, number>>({});
+  const [proteinsByDate, setProteinsByDate] = useState<Record<string, number>>({});
+  const [carbsByDate, setCarbsByDate] = useState<Record<string, number>>({});
+  const [fatByDate, setFatByDate] = useState<Record<string, number>>({});
   const [dailyLogsByDate, setDailyLogsByDate] = useState<Record<string, DailyLogEntry>>({});
   const [timeRange, setTimeRange] = useState<TimeRangeKey>("7d");
   const [metric, setMetric] = useState<MetricKey>("calories");
@@ -93,15 +115,31 @@ export default function StatPage() {
       const logQ = query(collection(db!, "dailyLogs"), where("userId", "==", user.uid));
 
       const unsubCal = onSnapshot(calQ, (snap) => {
-        const next: Record<string, number> = {};
+        const caloriesMap: Record<string, number> = {};
+        const proteinsMap: Record<string, number> = {};
+        const carbsMap: Record<string, number> = {};
+        const fatMap: Record<string, number> = {};
+
         snap.docs.forEach((docSnap) => {
           const data = docSnap.data() as CalorieEntry;
           const date = data.date;
           if (!date) return;
+
           const calories = Number(data.calories) || 0;
-          next[date] = (next[date] || 0) + calories;
+          const proteins = Number(data.proteins) || 0;
+          const carbs = Number(data.carbs) || 0;
+          const fat = Number(data.fat) || 0;
+
+          caloriesMap[date] = (caloriesMap[date] || 0) + calories;
+          proteinsMap[date] = (proteinsMap[date] || 0) + proteins;
+          carbsMap[date] = (carbsMap[date] || 0) + carbs;
+          fatMap[date] = (fatMap[date] || 0) + fat;
         });
-        setCaloriesByDate(next);
+
+        setCaloriesByDate(caloriesMap);
+        setProteinsByDate(proteinsMap);
+        setCarbsByDate(carbsMap);
+        setFatByDate(fatMap);
         setLoading(false);
       });
 
@@ -142,6 +180,15 @@ export default function StatPage() {
       if (metric === "calories") {
         return caloriesByDate[date] ?? null;
       }
+      if (metric === "protein") {
+        return proteinsByDate[date] ?? null;
+      }
+      if (metric === "carbs") {
+        return carbsByDate[date] ?? null;
+      }
+      if (metric === "fat") {
+        return fatByDate[date] ?? null;
+      }
       if (metric === "weight") {
         return dailyLogsByDate[date]?.weight ?? null;
       }
@@ -168,7 +215,7 @@ export default function StatPage() {
       }
       return 0;
     });
-  }, [dates, metric, caloriesByDate, dailyLogsByDate]);
+  }, [dates, metric, caloriesByDate, proteinsByDate, carbsByDate, fatByDate, dailyLogsByDate]);
 
   const isBinaryMetric = metric === "skinCare" || metric === "shower" || metric === "supplement";
 
