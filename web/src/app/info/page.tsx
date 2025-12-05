@@ -67,6 +67,9 @@ export default function InfoPage() {
   const [formWeight, setFormWeight] = useState("");
   const [formSleep, setFormSleep] = useState("");
   const [formExercise, setFormExercise] = useState("");
+  const [exerciseInputMode, setExerciseInputMode] = useState<"none" | "manual">("none");
+  const [sportDuration, setSportDuration] = useState("");
+  const [sportIntensity, setSportIntensity] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const dateKey = useMemo(() => todayKey(), []);
@@ -525,12 +528,12 @@ export default function InfoPage() {
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-slate-900">Activité Sportive</h2>
-                  <p className="text-xs text-slate-500">Bouger c'est vivre</p>
+                  <p className="text-xs text-slate-500">Bouger c est vivre</p>
                 </div>
               </div>
               <div className="mt-3 space-y-3">
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Type d'activité
+                  Type d activité
                   <div className="relative mt-1">
                     <select
                       value={formExercise}
@@ -550,7 +553,112 @@ export default function InfoPage() {
                     </div>
                   </div>
                 </label>
-                
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setExerciseInputMode("manual")}
+                    disabled={!formExercise || formExercise === "none"}
+                    className="flex-1 rounded-xl bg-rose-50 border border-rose-100 px-4 py-3 text-xs font-bold text-rose-600 transition hover:bg-rose-100 active:scale-95 disabled:opacity-50"
+                  >
+                    Remplir manuellement
+                  </button>
+                  <button
+                    type="button"
+                    disabled
+                    className="flex-1 rounded-xl bg-slate-50 border border-dashed border-slate-200 px-4 py-3 text-xs font-bold text-slate-400"
+                  >
+                    Importer GPX (bientot)
+                  </button>
+                </div>
+
+                {exerciseInputMode === "manual" && (
+                  <div className="space-y-3 pt-2 rounded-2xl border border-rose-100 bg-rose-50/40 px-4 py-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Durée (minutes)
+                        <input
+                          type="number"
+                          min={1}
+                          max={600}
+                          value={sportDuration}
+                          onChange={(e) => setSportDuration(e.target.value)}
+                          className="mt-1 w-full rounded-xl border-0 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner ring-1 ring-slate-200 focus:ring-2 focus:ring-rose-500 outline-none"
+                        />
+                      </label>
+                      <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Intensité (1 / 10)
+                        <input
+                          type="number"
+                          min={1}
+                          max={10}
+                          value={sportIntensity}
+                          onChange={(e) => setSportIntensity(e.target.value)}
+                          className="mt-1 w-full rounded-xl border-0 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner ring-1 ring-slate-200 focus:ring-2 focus:ring-rose-500 outline-none"
+                        />
+                      </label>
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExerciseInputMode("none");
+                          setSportDuration("");
+                          setSportIntensity("");
+                        }}
+                        className="flex-1 rounded-xl bg-slate-100 px-4 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-200 active:scale-95"
+                      >
+                        Annuler les détails
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!ensureUser() || !db || !userId) return;
+                          if (!formExercise || formExercise === "none") return;
+                          const durationValue = Number(sportDuration);
+                          const intensityValue = Number(sportIntensity);
+                          if (!durationValue || !intensityValue) return;
+                          try {
+                            setLoading(true);
+                            setError(null);
+                            await addDoc(collection(db!, "sport"), {
+                              user_id: userId,
+                              day: dateKey,
+                              sport_type: formExercise,
+                              duration: durationValue,
+                              intensity: intensityValue,
+                              createdAt: new Date().toISOString(),
+                            });
+                            const nextExercises = Array.from(
+                              new Set([...(dailyLog.exercises ?? []), formExercise]),
+                            );
+                            await saveExercises(nextExercises);
+                            setSportDuration("");
+                            setSportIntensity("");
+                            setExerciseInputMode("none");
+                            setModal(null);
+                          } catch (err) {
+                            console.error(err);
+                            setError("Echec de l'enregistrement du sport.");
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                        disabled={
+                          loading ||
+                          !formExercise ||
+                          formExercise === "none" ||
+                          !sportDuration ||
+                          !sportIntensity
+                        }
+                        className="flex-1 rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow-lg transition hover:bg-rose-500 active:scale-95 disabled:opacity-50"
+                      >
+                        Enregistrer le sport
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex gap-2 pt-4">
                   <button
                     onClick={() => setModal(null)}
@@ -713,3 +821,6 @@ export default function InfoPage() {
     </div>
   );
 }
+
+
+
