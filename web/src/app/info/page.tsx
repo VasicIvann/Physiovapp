@@ -29,6 +29,7 @@ type DailyLog = {
 type ModalState =
   | { type: "calories" }
   | { type: "weight" }
+  | { type: "history" }
   | { type: "foodScore" }
   | { type: "skinCare" }
   | { type: "shower" }
@@ -81,7 +82,7 @@ export default function InfoPage() {
   const [sportIntensity, setSportIntensity] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const dateKey = useMemo(() => todayKey(), []);
+  const [dateKey, setDateKey] = useState(() => todayKey());
 
   const fetchCalories = useCallback(async (uid: string) => {
     if (!db) return;
@@ -358,6 +359,51 @@ export default function InfoPage() {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm animate-in fade-in duration-200">
         <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl ring-1 ring-black/5 animate-in zoom-in-95 duration-200">
+          {modal.type === "history" && (
+            <>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-600">
+                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M12 8v4l3 3" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M5 5a9 9 0 1 1 3 7" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Gerer l historique</h2>
+                  <p className="text-xs text-slate-500">Choisis une date pour afficher et modifier les entrees.</p>
+                </div>
+              </div>
+              <div className="mt-3 space-y-3">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Date
+                  <input
+                    type="date"
+                    value={dateKey}
+                    onChange={(e) => setDateKey(e.target.value || todayKey())}
+                    className="mt-1 w-full rounded-2xl border-0 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-900 shadow-inner ring-1 ring-slate-200 transition focus:bg-white focus:ring-2 focus:ring-slate-500 outline-none"
+                  />
+                </label>
+                <p className="text-[11px] text-slate-500">
+                  Les cartes du journal afficheront maintenant les donnees pour cette date. Tu peux ensuite modifier les valeurs normalement.
+                </p>
+                <div className="flex gap-2 pt-4">
+                  <button
+                    onClick={() => setModal(null)}
+                    className="flex-1 rounded-xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-200 active:scale-95"
+                  >
+                    Fermer
+                  </button>
+                  <button
+                    onClick={() => setModal(null)}
+                    className="flex-1 rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-slate-800 active:scale-95"
+                  >
+                    Appliquer
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
           {modal.type === "calories" && (
             <>
               <div className="flex items-center gap-3 mb-4">
@@ -905,6 +951,30 @@ export default function InfoPage() {
         <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Journal Quotidien</h1>
         <p className="text-neutral-500 text-sm">Complète tes routines pour aujourd'hui.</p>
       </div>
+
+      <button
+        type="button"
+        onClick={() => setModal({ type: "history" })}
+        className="mx-1 flex items-center justify-between rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-xs font-semibold text-neutral-700 shadow-sm transition hover:bg-neutral-50 active:scale-95"
+      >
+        <span>Gerer historique</span>
+        <span className="inline-flex items-center gap-1 text-[11px] text-neutral-400">
+          <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path
+              d="M12 8v4l3 3M5 5a9 9 0 1 1 3 7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          {dateKey}
+        </span>
+      </button>
 
       {!isFirebaseConfigured && (
         <div className="rounded-2xl bg-amber-50 p-4 shadow-sm border border-amber-100">
