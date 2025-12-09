@@ -61,6 +61,12 @@ export default function InfoPage() {
   const [carbsTotal, setCarbsTotal] = useState<number>(0);
   const [fatTotal, setFatTotal] = useState<number>(0);
   const [dailyLog, setDailyLog] = useState<DailyLog>({});
+  const [nutritionGoals, setNutritionGoals] = useState<{
+    calorieGoal?: number;
+    proteinGoal?: number;
+    carbGoal?: number;
+    fatGoal?: number;
+  } | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
   const [loading, setLoading] = useState(false);
   const [formCalories, setFormCalories] = useState({ food: "", calories: "", proteins: "", carbs: "", fat: "" });
@@ -112,6 +118,22 @@ export default function InfoPage() {
     if (Array.isArray(data.exercises) && data.exercises.length > 0) setFormExercise("");
   }, [dateKey]);
 
+  const fetchNutritionGoals = useCallback(async (uid: string) => {
+    if (!db) return;
+    try {
+      const snap = await getDoc(doc(db!, "users", uid));
+      const data = (snap.data() as DocumentData | undefined) ?? {};
+      setNutritionGoals({
+        calorieGoal: typeof data.calorieGoal === "number" ? data.calorieGoal : undefined,
+        proteinGoal: typeof data.proteinGoal === "number" ? data.proteinGoal : undefined,
+        carbGoal: typeof data.carbGoal === "number" ? data.carbGoal : undefined,
+        fatGoal: typeof data.fatGoal === "number" ? data.fatGoal : undefined,
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
   useEffect(() => {
     if (!auth || !db || !isFirebaseConfigured) return;
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -120,14 +142,15 @@ export default function InfoPage() {
         setDisplayName(null);
         setDailyLog({});
         setCaloriesTotal(0);
+        setNutritionGoals(null);
         return;
       }
       setUserId(user.uid);
       setDisplayName(user.displayName ?? null);
-      await Promise.all([fetchDailyLog(user.uid), fetchCalories(user.uid)]);
+      await Promise.all([fetchDailyLog(user.uid), fetchCalories(user.uid), fetchNutritionGoals(user.uid)]);
     });
     return () => unsub();
-  }, [dateKey, fetchCalories, fetchDailyLog]);
+  }, [dateKey, fetchCalories, fetchDailyLog, fetchNutritionGoals]);
 
   const ensureUser = () => {
     if (!auth || !db || !userId) {
@@ -208,12 +231,21 @@ export default function InfoPage() {
 
   const statusIcon = (condition: boolean) => <StatusIcon success={condition} />;
 
+  const calorieGoal = nutritionGoals?.calorieGoal;
+
   const cards = [
     {
       key: "calories",
       title: "Nutrition",
-      badge: caloriesTotal > 0 ? `${caloriesTotal} kcal` : "Empty",
-      ok: caloriesTotal > 0,
+      badge:
+        caloriesTotal > 0
+          ? calorieGoal
+            ? `${caloriesTotal}/${calorieGoal} kcal`
+            : `${caloriesTotal} kcal`
+          : calorieGoal
+            ? `Objectif ${calorieGoal} kcal`
+            : "Empty",
+      ok: calorieGoal ? caloriesTotal >= calorieGoal : caloriesTotal > 0,
       icon: (
         <svg viewBox="0 0 24 24" className="h-5 w-5 text-amber-500" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" strokeLinecap="round" strokeLinejoin="round" />
@@ -339,7 +371,7 @@ export default function InfoPage() {
                     className="mt-1 w-full rounded-2xl border-0 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-900 shadow-inner ring-1 ring-slate-200 transition focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
                   />
                 </label>
-                
+
                 <div className="grid grid-cols-3 gap-2">
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">
                     Prot.
@@ -372,6 +404,38 @@ export default function InfoPage() {
                     />
                   </label>
                 </div>
+
+                {nutritionGoals && (
+                  <div className="mt-2 rounded-2xl border border-amber-100 bg-amber-50/60 px-3 py-2 text-[11px] text-slate-700">
+                    <p className="mb-1 font-semibold uppercase tracking-wide text-amber-700">Objectifs du jour</p>
+                    <div className="grid grid-cols-2 gap-1">
+                      <p>
+                        Calories:{" "}
+                        <span className="font-semibold">
+                          {caloriesTotal} / {nutritionGoals.calorieGoal ?? "?"} kcal
+                        </span>
+                      </p>
+                      <p>
+                        Proteines:{" "}
+                        <span className="font-semibold">
+                          {proteinsTotal} / {nutritionGoals.proteinGoal ?? "?"} g
+                        </span>
+                      </p>
+                      <p>
+                        Glucides:{" "}
+                        <span className="font-semibold">
+                          {carbsTotal} / {nutritionGoals.carbGoal ?? "?"} g
+                        </span>
+                      </p>
+                      <p>
+                        Lipides:{" "}
+                        <span className="font-semibold">
+                          {fatTotal} / {nutritionGoals.fatGoal ?? "?"} g
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex gap-2 pt-4">
                   <button
