@@ -17,7 +17,8 @@ type MetricKey =
   | "sleepTime"
   | "skinCare"
   | "shower"
-  | "supplement";
+  | "supplement"
+  | "foodHealthScore";
 
 type TimeRangeOption = { key: TimeRangeKey; label: string; days: number };
 type MetricOption = { key: MetricKey; label: string };
@@ -37,6 +38,7 @@ type DailyLogEntry = {
   skinCare?: "done" | "not done";
   shower?: "done" | "not done";
   supplement?: "done" | "not done";
+  foodHealthScore?: number;
 };
 
 const timeRanges: TimeRangeOption[] = [
@@ -53,6 +55,7 @@ const metrics: MetricOption[] = [
   { key: "fat", label: "Lipides / jour" },
   { key: "activities", label: "Nb activites sportives / jour" },
   { key: "sleepTime", label: "Temps de sommeil" },
+  { key: "foodHealthScore", label: "Food health score" },
   { key: "skinCare", label: "Skin care (binaire)" },
   { key: "shower", label: "Shower (binaire)" },
   { key: "supplement", label: "Supplement (binaire)" },
@@ -156,6 +159,8 @@ export default function StatPage() {
             skinCare: data.skinCare,
             shower: data.shower,
             supplement: data.supplement,
+            foodHealthScore:
+              typeof data.foodHealthScore === "number" ? data.foodHealthScore : undefined,
           };
         });
         setDailyLogsByDate(next);
@@ -201,6 +206,10 @@ export default function StatPage() {
         if (!sleep) return null;
         return parseSleepToHours(sleep);
       }
+      if (metric === "foodHealthScore") {
+        const score = dailyLogsByDate[date]?.foodHealthScore;
+        return typeof score === "number" ? score : null;
+      }
       if (metric === "skinCare") {
         if (!dailyLogsByDate[date]?.skinCare) return null;
         return dailyLogsByDate[date]?.skinCare === "done" ? 1 : 0;
@@ -217,7 +226,8 @@ export default function StatPage() {
     });
   }, [dates, metric, caloriesByDate, proteinsByDate, carbsByDate, fatByDate, dailyLogsByDate]);
 
-  const isBinaryMetric = metric === "skinCare" || metric === "shower" || metric === "supplement";
+  const isBinaryMetric =
+    metric === "skinCare" || metric === "shower" || metric === "supplement";
 
   const { yMin, yMax, ticks } = useMemo(() => {
     const dataPoints = values.filter((v) => v !== null && v !== undefined) as number[];

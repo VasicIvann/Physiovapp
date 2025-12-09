@@ -23,11 +23,13 @@ type DailyLog = {
   supplement?: "done" | "not done";
   sleepTime?: string;
   exercises?: string[];
+  foodHealthScore?: number;
 };
 
 type ModalState =
   | { type: "calories" }
   | { type: "weight" }
+  | { type: "foodScore" }
   | { type: "skinCare" }
   | { type: "shower" }
   | { type: "supplement" }
@@ -71,6 +73,7 @@ export default function InfoPage() {
   const [loading, setLoading] = useState(false);
   const [formCalories, setFormCalories] = useState({ food: "", calories: "", proteins: "", carbs: "", fat: "" });
   const [formWeight, setFormWeight] = useState("");
+  const [formFoodScore, setFormFoodScore] = useState("");
   const [formSleep, setFormSleep] = useState("");
   const [formExercise, setFormExercise] = useState("");
   const [exerciseInputMode, setExerciseInputMode] = useState<"none" | "manual">("none");
@@ -112,9 +115,11 @@ export default function InfoPage() {
       supplement: data.supplement,
       sleepTime: data.sleepTime,
       exercises: Array.isArray(data.exercises) ? data.exercises : [],
+      foodHealthScore: typeof data.foodHealthScore === "number" ? data.foodHealthScore : undefined,
     });
     if (data.weight) setFormWeight(String(data.weight));
     if (data.sleepTime) setFormSleep(String(data.sleepTime));
+    if (typeof data.foodHealthScore === "number") setFormFoodScore(String(data.foodHealthScore));
     if (Array.isArray(data.exercises) && data.exercises.length > 0) setFormExercise("");
   }, [dateKey]);
 
@@ -266,6 +271,19 @@ export default function InfoPage() {
         </svg>
       ),
       onClick: () => setModal({ type: "weight" }),
+    },
+    {
+      key: "foodScore",
+      title: "Food health score",
+      badge: typeof dailyLog.foodHealthScore === "number" ? `${dailyLog.foodHealthScore}/10` : "Empty",
+      ok: typeof dailyLog.foodHealthScore === "number",
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5 text-lime-500" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M12 2a7 7 0 0 0-7 7v1a7 7 0 0 0 14 0V9a7 7 0 0 0-7-7Z" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M9 11l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ),
+      onClick: () => setModal({ type: "foodScore" }),
     },
     {
       key: "exercise",
@@ -488,6 +506,62 @@ export default function InfoPage() {
                       setModal(null);
                     }}
                     disabled={loading}
+                    className="flex-1 rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-slate-800 active:scale-95 disabled:opacity-50"
+                  >
+                    Enregistrer
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {modal.type === "foodScore" && (
+            <>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-lime-100 text-lime-600">
+                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M12 3a9 9 0 1 0 9 9" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M9 11l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Food health score</h2>
+                  <p className="text-xs text-slate-500">Note globale de 0 à 10</p>
+                </div>
+              </div>
+              <div className="mt-3 space-y-3">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Score du jour
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    step={0.5}
+                    value={formFoodScore}
+                    onChange={(e) => setFormFoodScore(e.target.value)}
+                    placeholder="Ex: 7.5"
+                    className="mt-1 w-full rounded-2xl border-0 bg-slate-50 px-4 py-4 text-center text-xl font-bold text-slate-900 shadow-inner ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-lime-500 outline-none placeholder:text-slate-300"
+                  />
+                </label>
+                <p className="text-[11px] text-slate-500">
+                  Un seul score par jour. Score donné par une IA auparavent.
+                </p>
+                <div className="flex gap-2 pt-4">
+                  <button
+                    onClick={() => setModal(null)}
+                    className="flex-1 rounded-xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-200 active:scale-95"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={() => {
+                      const value = Number(formFoodScore);
+                      if (!Number.isFinite(value)) return;
+                      if (value < 1 || value > 10) return;
+                      saveDailyField("foodHealthScore", value);
+                      setModal(null);
+                    }}
+                    disabled={loading || !formFoodScore}
                     className="flex-1 rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-slate-800 active:scale-95 disabled:opacity-50"
                   >
                     Enregistrer

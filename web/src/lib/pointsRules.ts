@@ -6,6 +6,9 @@ export type DailyLogEntry = {
   supplement?: "done" | "not done";
   sleepTime?: string;
   exercises?: string[];
+  caloriesTotal?: number;
+  calorieGoal?: number;
+  foodHealthScore?: number;
 };
 
 export type PointsSummary = {
@@ -49,6 +52,32 @@ export const computeDailyPoints = (log: DailyLogEntry) => {
     else if (sleepHours < 7) points -= 1;
   }
   else points -= 1;
+
+  // Calories vs objectif si disponibles
+  const calories = typeof log.caloriesTotal === "number" ? log.caloriesTotal : null;
+  const goal = typeof log.calorieGoal === "number" ? log.calorieGoal : null;
+  if (calories !== null && goal !== null && goal > 0) {
+    const diffRatio = (calories - goal) / goal; // ex: 0.1 = +10 %, -0.2 = -20 %
+    const absDiff = Math.abs(diffRatio);
+    if (absDiff <= 0.1) {
+      points += 2;
+    } else if (absDiff >= 0.3) {
+      points -= 2;
+    } else if (absDiff >= 0.2) {
+      points -= 1;
+    }
+  }
+
+  // Food health score (1 à 10, un seul par jour)
+  if (typeof log.foodHealthScore === "number") {
+    const s = log.foodHealthScore;
+    if (s > 8.5) points += 3;
+    else if (s > 7) points += 2;
+    else if (s > 5) points += 1;
+    else if (s < 1.5) points -= 3;
+    else if (s < 3) points -= 2;
+    else if (s < 5) points -= 1;
+  }
 
   return points;
 };
