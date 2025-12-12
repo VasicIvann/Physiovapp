@@ -1,10 +1,14 @@
 {
   "hosting": {
-    "source": "web",
+    "public": "web/out",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
-    ]
+    ],
+    "cleanUrls": true
+  },
+  "functions": {
+    "source": "functions"
   }
 }

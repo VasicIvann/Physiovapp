@@ -13,7 +13,7 @@ type NutritionGoals = {
   fatGoal?: number;
 };
 
-const formatGoal = (value?: number | null, unit: string) => {
+const formatGoal = (value: number | null | undefined, unit: string) => {
   if (typeof value !== "number" || Number.isNaN(value)) return "Non defini";
   return `${value} ${unit}`;
 };
@@ -260,4 +260,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   addDoc,
@@ -873,7 +873,7 @@ export default function InfoPage() {
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Activités du jour</p>
                   <div className="flex flex-wrap gap-2">
                     {(dailyLog.exercises ?? []).length === 0 && (
-                      <span className="text-sm italic text-slate-400">Aucune activité pour l'instant.</span>
+                      <span className="text-sm italic text-slate-400">Aucune activite pour le moment.</span>
                     )}
                     {(dailyLog.exercises ?? []).map((ex) => (
                       <span
@@ -949,7 +949,7 @@ export default function InfoPage() {
       {/* --- En-tête --- */}
       <div className="px-1 flex flex-col gap-1">
         <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Journal Quotidien</h1>
-        <p className="text-neutral-500 text-sm">Complète tes routines pour aujourd'hui.</p>
+        <p className="text-neutral-500 text-sm">Complete tes routines pour aujourd hui.</p>
       </div>
 
       <button
@@ -1029,6 +1029,5 @@ export default function InfoPage() {
     </div>
   );
 }
-
 
 

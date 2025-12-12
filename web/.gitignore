@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# firebase web push
+/public/firebase-config.js
+
 # production
 /build
 

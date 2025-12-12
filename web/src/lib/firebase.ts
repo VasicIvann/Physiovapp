@@ -15,7 +15,7 @@ export const isFirebaseConfigured = Object.values(firebaseConfig).every(
   (value) => typeof value === "string" && value.length > 0,
 );
 
-const firebaseApp = isFirebaseConfigured
+export const firebaseApp = isFirebaseConfigured
   ? getApps().length
     ? getApp()
     : initializeApp(firebaseConfig)
