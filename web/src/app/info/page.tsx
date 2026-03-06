@@ -21,6 +21,7 @@ type DailyLog = {
   skinCare?: "done" | "not done";
   shower?: "done" | "not done";
   supplement?: "done" | "not done";
+  anki?: "done" | "not done";
   sleepTime?: string;
   exercises?: string[];
   foodHealthScore?: number;
@@ -34,6 +35,7 @@ type ModalState =
   | { type: "skinCare" }
   | { type: "shower" }
   | { type: "supplement" }
+  | { type: "anki" }
   | { type: "sleep" }
   | { type: "exercise" }
   | null;
@@ -114,6 +116,7 @@ export default function InfoPage() {
       skinCare: data.skinCare,
       shower: data.shower,
       supplement: data.supplement,
+      anki: data.anki,
       sleepTime: data.sleepTime,
       exercises: Array.isArray(data.exercises) ? data.exercises : [],
       foodHealthScore: typeof data.foodHealthScore === "number" ? data.foodHealthScore : undefined,
@@ -351,6 +354,19 @@ export default function InfoPage() {
         </svg>
       ),
       onClick: () => setModal({ type: "supplement" }),
+    },
+    {
+      key: "anki",
+      title: "Anki",
+      badge: dailyLog.anki === "done" ? "Fait" : "À faire",
+      ok: dailyLog.anki === "done",
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5 text-blue-500" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ),
+      onClick: () => setModal({ type: "anki" }),
     },
   ];
 
@@ -704,6 +720,35 @@ export default function InfoPage() {
             </>
           )}
 
+          {modal.type === "anki" && (
+            <>
+              <div className="text-center mb-6">
+                <h2 className="text-lg font-bold text-slate-900">Anki</h2>
+                <p className="text-xs text-slate-500">Révisions flashcards</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => {
+                    saveDailyField("anki", "not done");
+                    setModal(null);
+                  }}
+                  className="rounded-2xl bg-rose-50 border border-rose-100 px-4 py-6 text-sm font-bold text-rose-600 transition hover:bg-rose-100 active:scale-95"
+                >
+                  Non fait ❌
+                </button>
+                <button
+                  onClick={() => {
+                    saveDailyField("anki", "done");
+                    setModal(null);
+                  }}
+                  className="rounded-2xl bg-emerald-50 border border-emerald-100 px-4 py-6 text-sm font-bold text-emerald-600 transition hover:bg-emerald-100 active:scale-95"
+                >
+                  Fait ✅
+                </button>
+              </div>
+            </>
+          )}
+
           {modal.type === "exercise" && (
             <>
               <div className="flex items-center gap-3 mb-4">
@@ -1029,5 +1074,3 @@ export default function InfoPage() {
     </div>
   );
 }
-
-
