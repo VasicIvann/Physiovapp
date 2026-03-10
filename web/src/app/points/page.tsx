@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { collection, getDocs, query, where, setDoc, doc, getDoc, type DocumentData } from "firebase/firestore";
+import { collection, getDocs, query, where, setDoc, doc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db, isFirebaseConfigured } from "@/lib/firebase";
 import { computePointsFromLogs, computeDailyPoints, type DailyLogEntry, type PointsSummary } from "@/lib/pointsRules";
@@ -36,40 +36,16 @@ export default function PointsPage() {
     setError(null);
     try {
       const logsQ = query(collection(db!, "dailyLogs"), where("userId", "==", uid));
-      const caloriesQ = query(collection(db!, "calories"), where("userId", "==", uid));
-
-      const [logsSnap, caloriesSnap, userSnap] = await Promise.all([
-        getDocs(logsQ),
-        getDocs(caloriesQ),
-        getDoc(doc(db!, "users", uid)),
-      ]);
-
-      const caloriesByDate = new Map<string, number>();
-      caloriesSnap.docs.forEach((d) => {
-        const data = d.data() as { date?: string; calories?: number };
-        if (!data.date) return;
-        const prev = caloriesByDate.get(data.date) ?? 0;
-        caloriesByDate.set(data.date, prev + (Number(data.calories) || 0));
-      });
-
-      const userData = userSnap.data() as DocumentData | undefined;
-      const calorieGoal =
-        userData && typeof userData.calorieGoal === "number" ? userData.calorieGoal : undefined;
+      const logsSnap = await getDocs(logsQ);
 
       const baseLogs: DailyLogEntry[] = logsSnap.docs
         .map((d) => d.data() as DailyLogEntry)
         .filter((d) => !!d.date)
         .sort((a, b) => a.date.localeCompare(b.date));
 
-      const logsWithCalories: DailyLogEntry[] = baseLogs.map((log) => ({
-        ...log,
-        caloriesTotal: caloriesByDate.get(log.date) ?? undefined,
-        calorieGoal,
-      }));
-
-      const computed = computePointsFromLogs(logsWithCalories);
+      const computed = computePointsFromLogs(baseLogs);
       setSummary(computed);
-      setLogs(logsWithCalories);
+      setLogs(baseLogs);
 
       await setDoc(doc(db!, "points", uid), {
         userId: uid,
@@ -387,7 +363,10 @@ export default function PointsPage() {
             { label: "Poids rempli", val: "+1", bad: "-1" },
             { label: "Shower Done", val: "+1", bad: "-1" },
             { label: "Sommeil > 7h30", val: "+1 / +2", bad: "-1 / -2" },
-            { label: "Calories vs objectif", val: "+2 (±10 %)", bad: "-1 / -2" },
+            { label: "Nutrition (moy. > 7)", val: "+2", bad: "" },
+            { label: "Nutrition (moy. > 5)", val: "+1", bad: "" },
+            { label: "Nutrition (moy. < 5)", val: "", bad: "-1" },
+            { label: "Nutrition (moy. < 4)", val: "", bad: "-2" },
             { label: "Skin Care (Hebdo)", val: "+4 / +7", bad: "-3 / -6" },
             { label: "Supplement (Hebdo)", val: "+4", bad: "-4" },
             { label: "Exercices (Hebdo)", val: "+3 / +6", bad: "-3 / -6" },
