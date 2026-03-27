@@ -36,12 +36,15 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=""
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=""
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=""
 NEXT_PUBLIC_FIREBASE_APP_ID=""
+NEXT_PUBLIC_STATS_API_BASE_URL="http://localhost:8080"
 ```
 
 4. Installer le CLI Firebase (une fois) : `npm install -g firebase-tools` puis `firebase login`.
 5. Mettre a jour `.firebaserc` a la racine du repo avec l'ID reel de ton projet.
 
 La librairie `firebase` est initialisee dans `src/lib/firebase.ts`. Tant que les variables ne sont pas renseignees, l'interface affiche un bloc d'instructions dans `DailyEntryForm`.
+
+La page `stat` utilise desormais une API Python externe. En local, lance le service dans `analytics/` et renseigne `NEXT_PUBLIC_STATS_API_BASE_URL` avec l'URL du service.
 
 ---
 

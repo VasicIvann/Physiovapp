@@ -1,1 +1,18 @@
 .firebase/
+
+# Secrets
+secrets/
+
+# Python caches and bytecode
+__pycache__/
+*.pyc
+analytics/app/__pycache__/
+analytics/scripts/__pycache__/
+
+# Virtual environments
+.venv/
+analytics/.venv/
+
+# Local env files
+.env
+.env.*
