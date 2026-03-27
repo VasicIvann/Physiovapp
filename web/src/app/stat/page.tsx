@@ -10,6 +10,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -48,6 +49,10 @@ type ChartPoint = {
   dateKey: string;
   label: string;
   value: number | null;
+  nutritionCalorieScore?: number | null;
+  nutritionProteinScore?: number | null;
+  nutritionQualityScore?: number | null;
+  foodHealthScore?: number | null;
 };
 
 const timeRangeDays: Record<TimeRangeKey, number> = {
@@ -117,6 +122,24 @@ const buildMetricValue = (metric: MetricKey, entry?: DailyLogEntry) => {
   return null;
 };
 
+const resolveYAxisDomain = (values: number[], isBinary: boolean): [number, number] | ["auto", "auto"] => {
+  if (!values.length) return ["auto", "auto"];
+  if (isBinary) return [0, 1];
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min;
+  const padding = range === 0 ? Math.max(1, Math.abs(min) * 0.05) : Math.max(range * 0.2, 0.5);
+  return [min - padding, max + padding];
+};
+
+const nutritionSeriesConfig = [
+  { key: "nutritionCalorieScore", label: "Calories", color: "#f59e0b" },
+  { key: "nutritionProteinScore", label: "Proteines", color: "#f97316" },
+  { key: "nutritionQualityScore", label: "Qualite", color: "#ef4444" },
+  { key: "foodHealthScore", label: "Globale", color: "#4f46e5" },
+] as const;
+
 export default function StatPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRangeKey>("7d");
@@ -175,6 +198,7 @@ export default function StatPage() {
   }, [userId]);
 
   const chartStyleResolved: Exclude<ChartStyleKey, "auto"> = useMemo(() => {
+    if (metric === "nutritionGlobal") return "line";
     if (chartStyle !== "auto") return chartStyle;
     return isBinaryMetric(metric) ? "bar" : "line";
   }, [chartStyle, metric]);
@@ -182,14 +206,40 @@ export default function StatPage() {
   const chartData = useMemo<ChartPoint[]>(() => {
     const days = timeRangeDays[timeRange];
     const labels = buildDateRange(days);
-    return labels.map((dateKey) => ({
-      dateKey,
-      label: formatDateLabel(dateKey),
-      value: buildMetricValue(metric, dailyLogsByDate[dateKey]),
-    }));
+    return labels.map((dateKey) => {
+      const entry = dailyLogsByDate[dateKey];
+      const calorie = typeof entry?.nutritionCalorieScore === "number" ? entry.nutritionCalorieScore : null;
+      const protein = typeof entry?.nutritionProteinScore === "number" ? entry.nutritionProteinScore : null;
+      const quality = typeof entry?.nutritionQualityScore === "number" ? entry.nutritionQualityScore : null;
+      const global = [calorie, protein, quality].every((v) => typeof v === "number")
+        ? (((calorie as number) + (protein as number) + (quality as number)) / 3)
+        : null;
+
+      return {
+        dateKey,
+        label: formatDateLabel(dateKey),
+        value: metric === "nutritionGlobal" ? null : buildMetricValue(metric, entry),
+        nutritionCalorieScore: calorie,
+        nutritionProteinScore: protein,
+        nutritionQualityScore: quality,
+        foodHealthScore: global,
+      };
+    });
   }, [dailyLogsByDate, metric, timeRange]);
 
-  const numericValues = useMemo(() => chartData.map((row) => row.value).filter((v): v is number => typeof v === "number"), [chartData]);
+  const numericValues = useMemo(() => {
+    if (metric === "nutritionGlobal") {
+      return chartData
+        .flatMap((row) => [
+          row.nutritionCalorieScore,
+          row.nutritionProteinScore,
+          row.nutritionQualityScore,
+          row.foodHealthScore,
+        ])
+        .filter((v): v is number => typeof v === "number");
+    }
+    return chartData.map((row) => row.value).filter((v): v is number => typeof v === "number");
+  }, [chartData, metric]);
 
   const metricStats = useMemo(() => {
     if (!numericValues.length) return null;
@@ -202,6 +252,7 @@ export default function StatPage() {
   const hasData = numericValues.length > 0;
 
   const lastValue = useMemo(() => {
+    if (metric === "nutritionGlobal") return null;
     for (let idx = chartData.length - 1; idx >= 0; idx--) {
       const value = chartData[idx]?.value;
       if (typeof value === "number") {
@@ -209,7 +260,31 @@ export default function StatPage() {
       }
     }
     return null;
-  }, [chartData]);
+  }, [chartData, metric]);
+
+  const yAxisDomain = useMemo(
+    () => resolveYAxisDomain(numericValues, isBinaryMetric(metric)),
+    [metric, numericValues],
+  );
+
+  const nutritionLatest = useMemo(() => {
+    if (metric !== "nutritionGlobal") return null;
+
+    const findLast = (key: (typeof nutritionSeriesConfig)[number]["key"]) => {
+      for (let idx = chartData.length - 1; idx >= 0; idx--) {
+        const value = chartData[idx][key];
+        if (typeof value === "number") return value;
+      }
+      return null;
+    };
+
+    return {
+      nutritionCalorieScore: findLast("nutritionCalorieScore"),
+      nutritionProteinScore: findLast("nutritionProteinScore"),
+      nutritionQualityScore: findLast("nutritionQualityScore"),
+      foodHealthScore: findLast("foodHealthScore"),
+    };
+  }, [chartData, metric]);
 
   const formatMetricValue = (value: number) => {
     if (metric === "sleepTime") {
@@ -283,6 +358,7 @@ export default function StatPage() {
               <select
                 value={chartStyle}
                 onChange={(e) => setChartStyle(e.target.value as ChartStyleKey)}
+                disabled={metric === "nutritionGlobal"}
                 className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm font-medium text-neutral-800 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
               >
                 {chartStyleOptions.map((option) => (
@@ -321,7 +397,36 @@ export default function StatPage() {
                 </div>
                 <div className="h-72 w-full p-2 sm:h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    {chartStyleResolved === "bar" ? (
+                    {metric === "nutritionGlobal" ? (
+                      <LineChart data={chartData} margin={{ top: 16, right: 16, bottom: 8, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                        <XAxis dataKey="label" tick={{ fill: "#6b7280", fontSize: 11 }} tickMargin={8} />
+                        <YAxis domain={yAxisDomain} tick={{ fill: "#6b7280", fontSize: 11 }} />
+                        <Tooltip
+                          contentStyle={{ borderRadius: 12, border: "1px solid #e5e7eb" }}
+                          labelStyle={{ color: "#111827", fontWeight: 700 }}
+                          formatter={(value: number | string, name: string) => {
+                            const numeric = typeof value === "number" ? value : Number(value);
+                            return [Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(2), name];
+                          }}
+                        />
+                        <Legend verticalAlign="top" height={34} wrapperStyle={{ fontSize: "12px" }} />
+                        {nutritionSeriesConfig.map((series) => (
+                          <Line
+                            key={series.key}
+                            type="monotone"
+                            dataKey={series.key}
+                            name={series.label}
+                            stroke={series.color}
+                            strokeWidth={series.key === "foodHealthScore" ? 3.4 : 2.1}
+                            strokeOpacity={series.key === "foodHealthScore" ? 0.98 : 0.5}
+                            dot={false}
+                            activeDot={{ r: series.key === "foodHealthScore" ? 4.5 : 3.5 }}
+                            connectNulls
+                          />
+                        ))}
+                      </LineChart>
+                    ) : chartStyleResolved === "bar" ? (
                       <BarChart data={chartData} margin={{ top: 16, right: 16, bottom: 8, left: 0 }}>
                         <defs>
                           <linearGradient id="barFade" x1="0" y1="0" x2="0" y2="1">
@@ -331,7 +436,11 @@ export default function StatPage() {
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
                         <XAxis dataKey="label" tick={{ fill: "#6b7280", fontSize: 11 }} tickMargin={8} />
-                        <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} tickFormatter={(value) => (metric === "sleepTime" ? formatHoursToHHMM(value) : value)} />
+                        <YAxis
+                          domain={yAxisDomain}
+                          tick={{ fill: "#6b7280", fontSize: 11 }}
+                          tickFormatter={(value) => (metric === "sleepTime" ? formatHoursToHHMM(value) : value)}
+                        />
                         <Tooltip
                           contentStyle={{ borderRadius: 12, border: "1px solid #e5e7eb" }}
                           labelStyle={{ color: "#111827", fontWeight: 700 }}
@@ -352,7 +461,11 @@ export default function StatPage() {
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
                         <XAxis dataKey="label" tick={{ fill: "#6b7280", fontSize: 11 }} tickMargin={8} />
-                        <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} tickFormatter={(value) => (metric === "sleepTime" ? formatHoursToHHMM(value) : value)} />
+                        <YAxis
+                          domain={yAxisDomain}
+                          tick={{ fill: "#6b7280", fontSize: 11 }}
+                          tickFormatter={(value) => (metric === "sleepTime" ? formatHoursToHHMM(value) : value)}
+                        />
                         <Tooltip
                           contentStyle={{ borderRadius: 12, border: "1px solid #e5e7eb" }}
                           labelStyle={{ color: "#111827", fontWeight: 700 }}
@@ -361,13 +474,24 @@ export default function StatPage() {
                             return [formatMetricValue(numeric), metric];
                           }}
                         />
-                        <Area type="monotone" dataKey="value" stroke={chartColor} strokeWidth={2.5} fill="url(#areaFade)" />
+                        <Area
+                          type="monotone"
+                          dataKey="value"
+                          stroke={chartColor}
+                          strokeWidth={2.5}
+                          fill="url(#areaFade)"
+                          connectNulls={metric === "weight"}
+                        />
                       </AreaChart>
                     ) : (
                       <LineChart data={chartData} margin={{ top: 16, right: 16, bottom: 8, left: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
                         <XAxis dataKey="label" tick={{ fill: "#6b7280", fontSize: 11 }} tickMargin={8} />
-                        <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} tickFormatter={(value) => (metric === "sleepTime" ? formatHoursToHHMM(value) : value)} />
+                        <YAxis
+                          domain={yAxisDomain}
+                          tick={{ fill: "#6b7280", fontSize: 11 }}
+                          tickFormatter={(value) => (metric === "sleepTime" ? formatHoursToHHMM(value) : value)}
+                        />
                         <Tooltip
                           contentStyle={{ borderRadius: 12, border: "1px solid #e5e7eb" }}
                           labelStyle={{ color: "#111827", fontWeight: 700 }}
@@ -376,7 +500,15 @@ export default function StatPage() {
                             return [formatMetricValue(numeric), metric];
                           }}
                         />
-                        <Line type="monotone" dataKey="value" stroke={chartColor} strokeWidth={3} dot={{ r: 3.5, fill: chartColor }} activeDot={{ r: 5 }} />
+                        <Line
+                          type="monotone"
+                          dataKey="value"
+                          stroke={chartColor}
+                          strokeWidth={3}
+                          dot={{ r: 3.5, fill: chartColor }}
+                          activeDot={{ r: 5 }}
+                          connectNulls={metric === "weight"}
+                        />
                       </LineChart>
                     )}
                   </ResponsiveContainer>
@@ -391,14 +523,32 @@ export default function StatPage() {
       <section className="rounded-3xl bg-neutral-50 p-6 border border-neutral-100">
         <h2 className="text-sm font-bold text-neutral-900 mb-4">Résumé {metric}</h2>
 
-        {lastValue !== null && (
+        {metric === "nutritionGlobal" && nutritionLatest && (
+          <div className="grid grid-cols-2 gap-3">
+            {nutritionSeriesConfig.map((series) => {
+              const value = nutritionLatest[series.key];
+              return (
+                <div key={series.key} className="rounded-2xl border border-neutral-100 bg-white p-4 shadow-sm">
+                  <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: series.color }}>
+                    {series.label}
+                  </p>
+                  <p className="mt-1 text-base font-bold text-neutral-900">
+                    {typeof value === "number" ? (Number.isInteger(value) ? value : value.toFixed(2)) : "-"}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {metric !== "nutritionGlobal" && lastValue !== null && (
           <div className="mb-3 rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3">
             <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-500">Derniere valeur</p>
             <p className="mt-1 text-sm font-bold text-indigo-700">{formatMetricValue(lastValue)}</p>
           </div>
         )}
 
-        {metricStats ? (
+        {metric !== "nutritionGlobal" && metricStats ? (
           <div className="grid grid-cols-3 gap-3">
             <div className="flex flex-col items-center justify-center rounded-2xl bg-white p-4 shadow-sm border border-neutral-100">
               <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Min</p>
@@ -419,11 +569,11 @@ export default function StatPage() {
               </p>
             </div>
           </div>
-        ) : (
+        ) : metric !== "nutritionGlobal" ? (
           <div className="flex items-center justify-center rounded-2xl bg-white p-6 border border-neutral-100 border-dashed">
              <p className="text-xs text-neutral-400">Pas de données suffisantes pour calculer les moyennes.</p>
           </div>
-        )}
+        ) : null}
       </section>
 
       {/* Floating Back Button */}

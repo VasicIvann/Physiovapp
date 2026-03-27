@@ -11,7 +11,8 @@ export type MetricKey =
   | "nutritionCalorieScore"
   | "nutritionProteinScore"
   | "nutritionQualityScore"
-  | "foodHealthScore";
+  | "foodHealthScore"
+  | "nutritionGlobal";
 
 export type StatsSeriesResponse = {
   metric: MetricKey;
@@ -52,6 +53,7 @@ export const metricOptions: Array<{ key: MetricKey; label: string }> = [
   { key: "nutritionCalorieScore", label: "Nutrition calories" },
   { key: "nutritionProteinScore", label: "Nutrition proteines" },
   { key: "nutritionQualityScore", label: "Nutrition qualite" },
+  { key: "nutritionGlobal", label: "Nuttrition globale" },
   { key: "foodHealthScore", label: "Food health score" },
 ];
 
@@ -81,5 +83,6 @@ export const metricColors: Record<MetricKey, string> = {
   nutritionCalorieScore: "#f59e0b",
   nutritionProteinScore: "#f97316",
   nutritionQualityScore: "#ef4444",
+  nutritionGlobal: "#4f46e5",
   foodHealthScore: "#4f46e5",
 };

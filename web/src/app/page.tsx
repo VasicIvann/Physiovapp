@@ -4,13 +4,25 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { auth, db, isFirebaseConfigured } from "@/lib/firebase";
 
-type MiniChartProps = {
+type LineMiniChartProps = {
   title: string;
-  dates: string[];
-  values: Array<number | null>;
+  data: Array<{ label: string; value: number | null }>;
+  color: string;
   formatter?: (v: number) => string;
+};
+
+type NutritionMiniChartProps = {
+  title: string;
+  data: Array<{
+    label: string;
+    nutritionCalorieScore: number | null;
+    nutritionProteinScore: number | null;
+    nutritionQualityScore: number | null;
+    foodHealthScore: number | null;
+  }>;
 };
 
 const dateKeyFromDate = (date: Date) => date.toISOString().slice(0, 10);
@@ -39,75 +51,86 @@ const formatHoursToHHMM = (hoursValue: number) => {
   return `${hours}:${minutes.toString().padStart(2, "0")}`;
 };
 
-function MiniChart({ title, dates, values, formatter }: MiniChartProps) {
-  const numericValues = values.filter((v): v is number => typeof v === "number");
-  const hasData = numericValues.length > 0;
+const resolveYAxisDomain = (values: number[]): [number, number] | ["auto", "auto"] => {
+  if (!values.length) return ["auto", "auto"];
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min;
+  const padding = range === 0 ? Math.max(1, Math.abs(min) * 0.05) : Math.max(range * 0.2, 0.5);
+  return [min - padding, max + padding];
+};
 
-  const { yMin, yMax, ticks } = useMemo(() => {
-    if (!hasData) return { yMin: 0, yMax: 1, ticks: [0, 0.25, 0.5, 0.75, 1] };
-    const rawMin = Math.min(...numericValues);
-    const rawMax = Math.max(...numericValues);
-    const isBinaryMetric = rawMax <= 1 && rawMin >= 0;
-    if (isBinaryMetric) return { yMin: 0, yMax: 1, ticks: [0, 0.25, 0.5, 0.75, 1] };
-    const range = rawMax - rawMin || 1;
-    const padding = Math.max(range * 0.1, 1);
-    const yMinCandidate = rawMin - padding;
-    const yMaxCandidate = rawMax + padding;
-    const safeRange = yMaxCandidate - yMinCandidate || 1;
-    const step = safeRange / 4;
-    const ticks = Array.from({ length: 5 }, (_, i) => yMinCandidate + step * i);
-    return { yMin: yMinCandidate, yMax: yMaxCandidate, ticks };
-  }, [hasData, numericValues]);
+function LineMiniChart({ title, data, color, formatter }: LineMiniChartProps) {
+  const numericValues = data.map((row) => row.value).filter((v): v is number => typeof v === "number");
+  const yDomain = useMemo(() => resolveYAxisDomain(numericValues), [numericValues]);
 
   return (
     <div className="flex min-w-0 flex-col rounded-3xl border border-neutral-100 bg-neutral-50/50 p-4 transition-all hover:bg-neutral-50">
       <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">{title}</p>
       <div className="mt-3 h-24">
-        <div className="relative h-full">
-          {/* Lignes de la grille (plus subtiles) */}
-          <div className="absolute inset-0 flex flex-col justify-between">
-            {ticks.map((_, idx) => (
-              <div key={idx} className="h-px w-full bg-neutral-200/40 border-t border-dashed border-neutral-200/60" />
-            ))}
-          </div>
-          {/* Barres du graphique */}
-          <div
-            className="relative grid h-full items-end"
-            style={{
-              gridTemplateColumns: `repeat(${dates.length}, minmax(0, 1fr))`,
-              columnGap: "6px",
-            }}
-          >
-            {dates.map((date, idx) => {
-              const value = values[idx];
-              if (value === null || value === undefined) {
-                return <div key={date} className="h-full rounded-t-sm bg-neutral-100/50" />;
-              }
-              const normalized = (value - yMin) / (yMax - yMin || 1);
-              const heightPercent = Math.max(4, Math.min(100, normalized * 100));
-              const labelDate = new Date(date);
-              const shortLabel = `${labelDate.getDate()}`;
-              
-              return (
-                <div key={date} className="group flex h-full flex-col items-center justify-end gap-1">
-                  <div
-                    className="relative flex w-full items-end justify-center rounded-t-md bg-indigo-500 shadow-sm transition-all group-hover:bg-indigo-600"
-                    style={{ height: `${heightPercent}%` }}
-                  >
-                    {/* Tooltip au survol */}
-                    <div className="absolute -top-8 hidden flex-col items-center group-hover:flex z-10">
-                       <span className="whitespace-nowrap rounded-lg bg-neutral-900 px-2 py-1 text-[10px] font-bold text-white shadow-lg">
-                        {formatter ? formatter(value) : value}
-                      </span>
-                      <div className="h-1 w-1 rotate-45 bg-neutral-900"></div>
-                    </div>
-                  </div>
-                  <span className="text-[9px] font-medium text-neutral-400">{shortLabel}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+            <XAxis dataKey="label" hide />
+            <YAxis
+              hide
+              domain={yDomain}
+              tickFormatter={formatter}
+            />
+            <Tooltip
+              contentStyle={{ borderRadius: 10, border: "1px solid #e5e7eb", fontSize: "11px" }}
+              labelStyle={{ color: "#111827", fontWeight: 700 }}
+              formatter={(value: number | string) => {
+                const numeric = typeof value === "number" ? value : Number(value);
+                return [formatter ? formatter(numeric) : Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(2), title];
+              }}
+            />
+            <Line
+              type="monotone"
+              dataKey="value"
+              stroke={color}
+              strokeWidth={2.4}
+              dot={false}
+              activeDot={{ r: 3 }}
+              connectNulls
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function NutritionMiniChart({ title, data }: NutritionMiniChartProps) {
+  const numericValues = data
+    .flatMap((row) => [
+      row.nutritionCalorieScore,
+      row.nutritionProteinScore,
+      row.nutritionQualityScore,
+      row.foodHealthScore,
+    ])
+    .filter((v): v is number => typeof v === "number");
+  const yDomain = useMemo(() => resolveYAxisDomain(numericValues), [numericValues]);
+
+  return (
+    <div className="flex min-w-0 flex-col rounded-3xl border border-neutral-100 bg-neutral-50/50 p-4 transition-all hover:bg-neutral-50">
+      <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">{title}</p>
+      <div className="mt-3 h-24">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+            <XAxis dataKey="label" hide />
+            <YAxis hide domain={yDomain} />
+            <Tooltip
+              contentStyle={{ borderRadius: 10, border: "1px solid #e5e7eb", fontSize: "11px" }}
+              labelStyle={{ color: "#111827", fontWeight: 700 }}
+            />
+            <Line type="monotone" dataKey="nutritionCalorieScore" name="Calories" stroke="#f59e0b" strokeWidth={1.7} strokeOpacity={0.5} dot={false} activeDot={{ r: 2.5 }} connectNulls />
+            <Line type="monotone" dataKey="nutritionProteinScore" name="Proteines" stroke="#f97316" strokeWidth={1.7} strokeOpacity={0.5} dot={false} activeDot={{ r: 2.5 }} connectNulls />
+            <Line type="monotone" dataKey="nutritionQualityScore" name="Qualite" stroke="#ef4444" strokeWidth={1.7} strokeOpacity={0.5} dot={false} activeDot={{ r: 2.5 }} connectNulls />
+            <Line type="monotone" dataKey="foodHealthScore" name="Globale" stroke="#4f46e5" strokeWidth={2.8} strokeOpacity={0.98} dot={false} activeDot={{ r: 3 }} connectNulls />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );
@@ -115,8 +138,18 @@ function MiniChart({ title, dates, values, formatter }: MiniChartProps) {
 
 export default function Home() {
   const [userId, setUserId] = useState<string | null>(null);
-  const [caloriesByDate, setCaloriesByDate] = useState<Record<string, number>>({});
-  const [dailyLogsByDate, setDailyLogsByDate] = useState<Record<string, { exercises?: string[]; sleepTime?: string }>>({});
+  const [dailyLogsByDate, setDailyLogsByDate] = useState<
+    Record<
+      string,
+      {
+        exercises?: string[];
+        sleepTime?: string;
+        nutritionCalorieScore?: number;
+        nutritionProteinScore?: number;
+        nutritionQualityScore?: number;
+      }
+    >
+  >({});
   const dates = useMemo(() => buildDateRange(7), []);
 
   useEffect(() => {
@@ -124,39 +157,45 @@ export default function Home() {
     const unsubAuth = onAuthStateChanged(auth, (user) => {
       if (!user) {
         setUserId(null);
-        setCaloriesByDate({});
         setDailyLogsByDate({});
         return;
       }
       setUserId(user.uid);
-      const calQ = query(collection(db!, "calories"), where("userId", "==", user.uid));
       const logQ = query(collection(db!, "dailyLogs"), where("userId", "==", user.uid));
 
-      const unsubCal = onSnapshot(calQ, (snap) => {
-        const next: Record<string, number> = {};
-        snap.docs.forEach((docSnap) => {
-          const data = docSnap.data() as { date?: string; calories?: number };
-          if (!data.date) return;
-          next[data.date] = (next[data.date] || 0) + (Number(data.calories) || 0);
-        });
-        setCaloriesByDate(next);
-      });
-
       const unsubLogs = onSnapshot(logQ, (snap) => {
-        const next: Record<string, { exercises?: string[]; sleepTime?: string }> = {};
+        const next: Record<
+          string,
+          {
+            exercises?: string[];
+            sleepTime?: string;
+            nutritionCalorieScore?: number;
+            nutritionProteinScore?: number;
+            nutritionQualityScore?: number;
+          }
+        > = {};
         snap.docs.forEach((docSnap) => {
-          const data = docSnap.data() as { date?: string; exercises?: string[]; sleepTime?: string };
+          const data = docSnap.data() as {
+            date?: string;
+            exercises?: string[];
+            sleepTime?: string;
+            nutritionCalorieScore?: number;
+            nutritionProteinScore?: number;
+            nutritionQualityScore?: number;
+          };
           if (!data.date) return;
           next[data.date] = {
             exercises: Array.isArray(data.exercises) ? data.exercises : [],
             sleepTime: data.sleepTime,
+            nutritionCalorieScore: data.nutritionCalorieScore,
+            nutritionProteinScore: data.nutritionProteinScore,
+            nutritionQualityScore: data.nutritionQualityScore,
           };
         });
         setDailyLogsByDate(next);
       });
 
       return () => {
-        unsubCal();
         unsubLogs();
       };
     });
@@ -164,9 +203,19 @@ export default function Home() {
     return () => unsubAuth();
   }, []);
 
-  const caloriesValues = useMemo(
-    () => dates.map((d) => caloriesByDate[d] ?? null),
-    [dates, caloriesByDate],
+  const nutritionGlobalValues = useMemo(
+    () =>
+      dates.map((d) => {
+        const row = dailyLogsByDate[d];
+        const a = row?.nutritionCalorieScore;
+        const b = row?.nutritionProteinScore;
+        const c = row?.nutritionQualityScore;
+        if ([a, b, c].every((v) => typeof v === "number")) {
+          return ((a as number) + (b as number) + (c as number)) / 3;
+        }
+        return null;
+      }),
+    [dates, dailyLogsByDate],
   );
 
   const activitiesValues = useMemo(
@@ -187,6 +236,35 @@ export default function Home() {
         return parseSleepToHours(sleep);
       }),
     [dates, dailyLogsByDate],
+  );
+
+  const lineNutritionData = useMemo(
+    () =>
+      dates.map((d, idx) => {
+        const row = dailyLogsByDate[d];
+        const a = typeof row?.nutritionCalorieScore === "number" ? row.nutritionCalorieScore : null;
+        const b = typeof row?.nutritionProteinScore === "number" ? row.nutritionProteinScore : null;
+        const c = typeof row?.nutritionQualityScore === "number" ? row.nutritionQualityScore : null;
+        const g = typeof nutritionGlobalValues[idx] === "number" ? nutritionGlobalValues[idx] : null;
+        return {
+          label: String(new Date(d).getDate()),
+          nutritionCalorieScore: a,
+          nutritionProteinScore: b,
+          nutritionQualityScore: c,
+          foodHealthScore: g,
+        };
+      }),
+    [dates, dailyLogsByDate, nutritionGlobalValues],
+  );
+
+  const lineActivitiesData = useMemo(
+    () => dates.map((d, idx) => ({ label: String(new Date(d).getDate()), value: activitiesValues[idx] })),
+    [dates, activitiesValues],
+  );
+
+  const lineSleepData = useMemo(
+    () => dates.map((d, idx) => ({ label: String(new Date(d).getDate()), value: sleepValues[idx] })),
+    [dates, sleepValues],
   );
 
   return (
@@ -216,12 +294,12 @@ export default function Home() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <MiniChart title="Calories" dates={dates} values={caloriesValues} />
-            <MiniChart title="Activités" dates={dates} values={activitiesValues} />
-            <MiniChart
+            <NutritionMiniChart title="Nuttrition globale" data={lineNutritionData} />
+            <LineMiniChart title="Activités" data={lineActivitiesData} color="#0ea5e9" />
+            <LineMiniChart
               title="Sommeil"
-              dates={dates}
-              values={sleepValues}
+              data={lineSleepData}
+              color="#7c3aed"
               formatter={(v) => formatHoursToHHMM(v)}
             />
           </div>
