@@ -2,50 +2,143 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth, isFirebaseConfigured } from "@/lib/firebase";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { auth, db, isFirebaseConfigured } from "@/lib/firebase";
 import {
   chartStyleOptions,
-  fetchStatsChartBlob,
-  fetchStatsSeries,
   formatHoursToHHMM,
   isBinaryMetric,
+  metricColors,
   metricOptions,
   type ChartStyleKey,
   timeRangeOptions,
   type MetricKey,
-  type StatsSeriesResponse,
   type TimeRangeKey,
 } from "@/lib/statsApi";
+
+type DailyLogEntry = {
+  date?: string;
+  userId?: string;
+  weight?: number;
+  exercises?: string[];
+  sleepTime?: string;
+  skinCare?: "done" | "not done";
+  shower?: "done" | "not done";
+  supplement?: "done" | "not done";
+  nutritionCalorieScore?: number;
+  nutritionProteinScore?: number;
+  nutritionQualityScore?: number;
+};
+
+type ChartPoint = {
+  dateKey: string;
+  label: string;
+  value: number | null;
+};
+
+const timeRangeDays: Record<TimeRangeKey, number> = {
+  "7d": 7,
+  "30d": 30,
+  "365d": 365,
+};
+
+const dateKeyFromDate = (date: Date) => date.toISOString().slice(0, 10);
+
+const buildDateRange = (days: number) => {
+  const today = new Date();
+  const dates: string[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    dates.push(dateKeyFromDate(d));
+  }
+  return dates;
+};
+
+const parseSleepToHours = (value?: string) => {
+  if (!value || !value.includes(":")) return null;
+  const [h, m] = value.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m) || m < 0 || m > 59) return null;
+  return h + m / 60;
+};
+
+const formatDateLabel = (dateKey: string) => {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  if (!year || !month || !day) return dateKey;
+  return `${day.toString().padStart(2, "0")}/${month.toString().padStart(2, "0")}`;
+};
+
+const buildMetricValue = (metric: MetricKey, entry?: DailyLogEntry) => {
+  if (!entry) return null;
+
+  if (metric === "weight") {
+    return typeof entry.weight === "number" ? entry.weight : null;
+  }
+
+  if (metric === "activities") {
+    return Array.isArray(entry.exercises) ? entry.exercises.length : null;
+  }
+
+  if (metric === "sleepTime") {
+    return parseSleepToHours(entry.sleepTime);
+  }
+
+  if (metric === "skinCare" || metric === "shower" || metric === "supplement") {
+    const value = entry[metric];
+    if (value !== "done" && value !== "not done") return null;
+    return value === "done" ? 1 : 0;
+  }
+
+  if (metric === "nutritionCalorieScore" || metric === "nutritionProteinScore" || metric === "nutritionQualityScore") {
+    const value = entry[metric];
+    return typeof value === "number" ? value : null;
+  }
+
+  const a = entry.nutritionCalorieScore;
+  const b = entry.nutritionProteinScore;
+  const c = entry.nutritionQualityScore;
+  if ([a, b, c].every((v) => typeof v === "number")) {
+    return ((a as number) + (b as number) + (c as number)) / 3;
+  }
+  return null;
+};
 
 export default function StatPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRangeKey>("7d");
   const [metric, setMetric] = useState<MetricKey>("nutritionQualityScore");
   const [chartStyle, setChartStyle] = useState<ChartStyleKey>("auto");
-  const [series, setSeries] = useState<StatsSeriesResponse | null>(null);
-  const [chartUrl, setChartUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const apiBaseUrl = (process.env.NEXT_PUBLIC_STATS_API_BASE_URL ?? "").trim();
+  const [dailyLogsByDate, setDailyLogsByDate] = useState<Record<string, DailyLogEntry>>({});
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!auth || !isFirebaseConfigured) {
-      setLoading(false);
+    if (!auth || !db || !isFirebaseConfigured) {
       return;
     }
 
     const unsubAuth = onAuthStateChanged(auth, (user) => {
       if (!user) {
         setUserId(null);
-        setSeries(null);
-        setError(null);
+        setDailyLogsByDate({});
         setLoading(false);
         return;
       }
 
+      setLoading(true);
       setUserId(user.uid);
     });
 
@@ -53,83 +146,70 @@ export default function StatPage() {
   }, []);
 
   useEffect(() => {
-    return () => {
-      if (chartUrl) {
-        URL.revokeObjectURL(chartUrl);
-      }
-    };
-  }, [chartUrl]);
-
-  useEffect(() => {
-    if (!userId || !isFirebaseConfigured || !auth) {
-      setSeries(null);
-      setLoading(false);
+    if (!db || !userId) {
       return;
     }
 
-    let cancelled = false;
-    let localObjectUrl: string | null = null;
-
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const [seriesPayload, chartBlob] = await Promise.all([
-          fetchStatsSeries(metric, timeRange),
-          fetchStatsChartBlob(metric, timeRange, chartStyle),
-        ]);
-
-        if (cancelled) return;
-
-        localObjectUrl = URL.createObjectURL(chartBlob);
-        setSeries(seriesPayload);
-        setChartUrl((prev) => {
-          if (prev) {
-            URL.revokeObjectURL(prev);
-          }
-          return localObjectUrl;
+    const logsQuery = query(collection(db, "dailyLogs"), where("userId", "==", userId));
+    const unsub = onSnapshot(
+      logsQuery,
+      (snapshot) => {
+        const next: Record<string, DailyLogEntry> = {};
+        snapshot.docs.forEach((docSnap) => {
+          const data = docSnap.data() as DailyLogEntry;
+          if (!data.date || typeof data.date !== "string") return;
+          next[data.date] = data;
         });
-      } catch (err) {
-        if (cancelled) return;
-        console.error("[stat/page] Load error:", err);
-        setSeries(null);
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        if (errorMsg.toLowerCase().includes("token firebase invalide ou expire")) {
-          setError("Session expiree. Deconnecte-toi puis reconnecte-toi. Si ca continue, l API Python n utilise probablement pas le meme projet Firebase.");
-        } else {
-          setError(`Erreur: ${errorMsg}`);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    void load();
+        setDailyLogsByDate(next);
+        setLoading(false);
+      },
+      (err) => {
+        console.error("[stat/page] Firestore load error:", err);
+        setLoading(false);
+      },
+    );
 
     return () => {
-      cancelled = true;
-      if (localObjectUrl) {
-        URL.revokeObjectURL(localObjectUrl);
-      }
+      unsub();
     };
-  }, [userId, metric, timeRange, chartStyle]);
+  }, [userId]);
 
-  const metricStats = useMemo(() => series?.stats ?? null, [series]);
-  const hasData = series?.hasData ?? false;
+  const chartStyleResolved: Exclude<ChartStyleKey, "auto"> = useMemo(() => {
+    if (chartStyle !== "auto") return chartStyle;
+    return isBinaryMetric(metric) ? "bar" : "line";
+  }, [chartStyle, metric]);
+
+  const chartData = useMemo<ChartPoint[]>(() => {
+    const days = timeRangeDays[timeRange];
+    const labels = buildDateRange(days);
+    return labels.map((dateKey) => ({
+      dateKey,
+      label: formatDateLabel(dateKey),
+      value: buildMetricValue(metric, dailyLogsByDate[dateKey]),
+    }));
+  }, [dailyLogsByDate, metric, timeRange]);
+
+  const numericValues = useMemo(() => chartData.map((row) => row.value).filter((v): v is number => typeof v === "number"), [chartData]);
+
+  const metricStats = useMemo(() => {
+    if (!numericValues.length) return null;
+    const min = Math.min(...numericValues);
+    const max = Math.max(...numericValues);
+    const avg = numericValues.reduce((acc, value) => acc + value, 0) / numericValues.length;
+    return { count: numericValues.length, min, max, avg };
+  }, [numericValues]);
+
+  const hasData = numericValues.length > 0;
 
   const lastValue = useMemo(() => {
-    if (!series) return null;
-    for (let idx = series.values.length - 1; idx >= 0; idx--) {
-      const value = series.values[idx];
+    for (let idx = chartData.length - 1; idx >= 0; idx--) {
+      const value = chartData[idx]?.value;
       if (typeof value === "number") {
         return value;
       }
     }
     return null;
-  }, [series]);
+  }, [chartData]);
 
   const formatMetricValue = (value: number) => {
     if (metric === "sleepTime") {
@@ -140,6 +220,8 @@ export default function StatPage() {
     }
     return Number.isInteger(value) ? String(value) : value.toFixed(2);
   };
+
+  const chartColor = metricColors[metric];
 
   if (!isFirebaseConfigured) {
     return (
@@ -153,14 +235,6 @@ export default function StatPage() {
     return (
       <div className="rounded-3xl bg-white p-6 shadow-sm border border-neutral-100">
         <p className="text-sm font-semibold text-neutral-900">Connecte-toi pour voir tes statistiques.</p>
-      </div>
-    );
-  }
-
-  if (!apiBaseUrl) {
-    return (
-      <div className="rounded-3xl bg-white p-6 shadow-sm border border-neutral-100">
-        <p className="text-sm font-semibold text-rose-600">Configure NEXT_PUBLIC_STATS_API_BASE_URL pour utiliser la nouvelle section Stat.</p>
       </div>
     );
   }
@@ -227,12 +301,6 @@ export default function StatPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {error && (
-                <div className="rounded-xl border border-rose-100 bg-rose-50 p-3 text-center">
-                  <p className="text-xs font-semibold text-rose-700">{error}</p>
-                </div>
-              )}
-
               {!hasData && (
                 <div className="rounded-xl bg-neutral-50 p-3 text-center">
                   <p className="text-xs text-neutral-500">Aucune donnée sur la période.</p>
@@ -242,30 +310,76 @@ export default function StatPage() {
               <div className="overflow-hidden rounded-2xl border border-neutral-100 bg-neutral-50">
                 <div className="flex items-center justify-between border-b border-neutral-100 bg-white px-4 py-3">
                   <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">
-                    Graphique genere par l API Python
+                    Graphique genere depuis Firestore
                   </p>
                   <div className="text-right">
-                    <p className="text-xs font-semibold text-neutral-400">{series?.timeRange ?? timeRange}</p>
+                    <p className="text-xs font-semibold text-neutral-400">{timeRange}</p>
                     <p className="text-[10px] font-semibold text-neutral-400">
-                      Style: {chartStyle === "auto" ? (series?.chart?.defaultStyle ?? "auto") : chartStyle}
+                      Style: {chartStyleResolved}
                     </p>
                   </div>
                 </div>
-                <div className="p-3">
-                  {chartUrl ? (
-                    <Image
-                      src={chartUrl}
-                      alt="Graphique statistique"
-                      width={1600}
-                      height={640}
-                      unoptimized
-                      className="h-auto w-full rounded-xl bg-white object-contain"
-                    />
-                  ) : (
-                    <div className="flex h-64 items-center justify-center rounded-xl bg-neutral-100">
-                      <p className="text-xs font-medium text-neutral-500">Graphique indisponible.</p>
-                    </div>
-                  )}
+                <div className="h-72 w-full p-2 sm:h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    {chartStyleResolved === "bar" ? (
+                      <BarChart data={chartData} margin={{ top: 16, right: 16, bottom: 8, left: 0 }}>
+                        <defs>
+                          <linearGradient id="barFade" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={chartColor} stopOpacity={0.9} />
+                            <stop offset="100%" stopColor={chartColor} stopOpacity={0.5} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                        <XAxis dataKey="label" tick={{ fill: "#6b7280", fontSize: 11 }} tickMargin={8} />
+                        <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} tickFormatter={(value) => (metric === "sleepTime" ? formatHoursToHHMM(value) : value)} />
+                        <Tooltip
+                          contentStyle={{ borderRadius: 12, border: "1px solid #e5e7eb" }}
+                          labelStyle={{ color: "#111827", fontWeight: 700 }}
+                          formatter={(value: number | string) => {
+                            const numeric = typeof value === "number" ? value : Number(value);
+                            return [formatMetricValue(numeric), metric];
+                          }}
+                        />
+                        <Bar dataKey="value" fill="url(#barFade)" radius={[8, 8, 0, 0]} />
+                      </BarChart>
+                    ) : chartStyleResolved === "area" ? (
+                      <AreaChart data={chartData} margin={{ top: 16, right: 16, bottom: 8, left: 0 }}>
+                        <defs>
+                          <linearGradient id="areaFade" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor={chartColor} stopOpacity={0.45} />
+                            <stop offset="95%" stopColor={chartColor} stopOpacity={0.06} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                        <XAxis dataKey="label" tick={{ fill: "#6b7280", fontSize: 11 }} tickMargin={8} />
+                        <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} tickFormatter={(value) => (metric === "sleepTime" ? formatHoursToHHMM(value) : value)} />
+                        <Tooltip
+                          contentStyle={{ borderRadius: 12, border: "1px solid #e5e7eb" }}
+                          labelStyle={{ color: "#111827", fontWeight: 700 }}
+                          formatter={(value: number | string) => {
+                            const numeric = typeof value === "number" ? value : Number(value);
+                            return [formatMetricValue(numeric), metric];
+                          }}
+                        />
+                        <Area type="monotone" dataKey="value" stroke={chartColor} strokeWidth={2.5} fill="url(#areaFade)" />
+                      </AreaChart>
+                    ) : (
+                      <LineChart data={chartData} margin={{ top: 16, right: 16, bottom: 8, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                        <XAxis dataKey="label" tick={{ fill: "#6b7280", fontSize: 11 }} tickMargin={8} />
+                        <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} tickFormatter={(value) => (metric === "sleepTime" ? formatHoursToHHMM(value) : value)} />
+                        <Tooltip
+                          contentStyle={{ borderRadius: 12, border: "1px solid #e5e7eb" }}
+                          labelStyle={{ color: "#111827", fontWeight: 700 }}
+                          formatter={(value: number | string) => {
+                            const numeric = typeof value === "number" ? value : Number(value);
+                            return [formatMetricValue(numeric), metric];
+                          }}
+                        />
+                        <Line type="monotone" dataKey="value" stroke={chartColor} strokeWidth={3} dot={{ r: 3.5, fill: chartColor }} activeDot={{ r: 5 }} />
+                      </LineChart>
+                    )}
+                  </ResponsiveContainer>
                 </div>
               </div>
             </div>
