@@ -8,6 +8,7 @@ export type MetricKey =
   | "skinCare"
   | "shower"
   | "supplement"
+  | "anki"
   | "nutritionCalorieScore"
   | "nutritionProteinScore"
   | "nutritionQualityScore"
@@ -50,6 +51,7 @@ export const metricOptions: Array<{ key: MetricKey; label: string }> = [
   { key: "skinCare", label: "Skin care" },
   { key: "shower", label: "Shower" },
   { key: "supplement", label: "Supplement" },
+  { key: "anki", label: "Anki" },
   { key: "nutritionCalorieScore", label: "Nutrition calories" },
   { key: "nutritionProteinScore", label: "Nutrition proteines" },
   { key: "nutritionQualityScore", label: "Nutrition qualite" },
@@ -64,7 +66,7 @@ export const timeRangeOptions: Array<{ key: TimeRangeKey; label: string }> = [
 ];
 
 export const isBinaryMetric = (metric: MetricKey) =>
-  metric === "skinCare" || metric === "shower" || metric === "supplement";
+  metric === "shower" || metric === "anki";
 
 export const formatHoursToHHMM = (hoursValue: number) => {
   const totalMinutes = Math.max(0, Math.round(hoursValue * 60));
@@ -80,6 +82,7 @@ export const metricColors: Record<MetricKey, string> = {
   skinCare: "#059669",
   shower: "#06b6d4",
   supplement: "#22c55e",
+  anki: "#3b82f6",
   nutritionCalorieScore: "#f59e0b",
   nutritionProteinScore: "#f97316",
   nutritionQualityScore: "#ef4444",

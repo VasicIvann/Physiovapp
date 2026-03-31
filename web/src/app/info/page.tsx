@@ -15,9 +15,11 @@ import { auth, db, isFirebaseConfigured } from "@/lib/firebase";
 
 type DailyLog = {
   weight?: number;
-  skinCare?: "done" | "not done";
+  skinCareMatin?: "done" | "not done";
+  skinCareEvening?: "done" | "not done";
   shower?: "done" | "not done";
-  supplement?: "done" | "not done";
+  supplementMatin?: "done" | "not done";
+  supplementEvening?: "done" | "not done";
   anki?: "done" | "not done";
   sleepTime?: string;
   exercises?: string[];
@@ -80,9 +82,11 @@ export default function InfoPage() {
     const data = (snap.data() as DocumentData | undefined) ?? {};
     setDailyLog({
       weight: data.weight,
-      skinCare: data.skinCare,
+      skinCareMatin: data.skinCareMatin,
+      skinCareEvening: data.skinCareEvening,
       shower: data.shower,
-      supplement: data.supplement,
+      supplementMatin: data.supplementMatin,
+      supplementEvening: data.supplementEvening,
       anki: data.anki,
       sleepTime: data.sleepTime,
       exercises: Array.isArray(data.exercises) ? data.exercises : [],
@@ -242,8 +246,8 @@ export default function InfoPage() {
     {
       key: "skinCare",
       title: "Skin care",
-      badge: dailyLog.skinCare === "done" ? "Fait" : "À faire",
-      ok: dailyLog.skinCare === "done",
+      badge: dailyLog.skinCareMatin === "done" && dailyLog.skinCareEvening === "done" ? "✓ Fait" : "À faire",
+      ok: dailyLog.skinCareMatin === "done" && dailyLog.skinCareEvening === "done",
       icon: (
         <svg viewBox="0 0 24 24" className="h-5 w-5 text-indigo-500" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" strokeLinecap="round" strokeLinejoin="round" />
@@ -280,8 +284,8 @@ export default function InfoPage() {
     {
       key: "supplement",
       title: "Suppléments",
-      badge: dailyLog.supplement === "done" ? "Pris" : "À prendre",
-      ok: dailyLog.supplement === "done",
+      badge: dailyLog.supplementMatin === "done" && dailyLog.supplementEvening === "done" ? "✓ Pris" : "À prendre",
+      ok: dailyLog.supplementMatin === "done" && dailyLog.supplementEvening === "done",
       icon: (
         <svg viewBox="0 0 24 24" className="h-5 w-5 text-emerald-500" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M10 2h4" strokeLinecap="round" strokeLinejoin="round" />
@@ -489,24 +493,155 @@ export default function InfoPage() {
                 <h2 className="text-lg font-bold text-slate-900">Skin Care Routine</h2>
                 <p className="text-xs text-slate-500">Prends soin de toi</p>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              
+              {/* MATIN */}
+              <div className="mb-6 pb-6 border-b border-slate-200">
+                <p className="text-sm font-semibold text-slate-700 mb-3">🌅 Matin</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => {
+                      saveDailyField("skinCareMatin", "not done");
+                    }}
+                    className={`rounded-2xl border px-4 py-4 text-sm font-bold transition active:scale-95 ${
+                      dailyLog.skinCareMatin === "not done"
+                        ? "bg-rose-100 border-rose-200 text-rose-600"
+                        : "bg-rose-50 border-rose-100 text-rose-600 hover:bg-rose-100"
+                    }`}
+                  >
+                    Non fait ❌
+                  </button>
+                  <button
+                    onClick={() => {
+                      saveDailyField("skinCareMatin", "done");
+                    }}
+                    className={`rounded-2xl border px-4 py-4 text-sm font-bold transition active:scale-95 ${
+                      dailyLog.skinCareMatin === "done"
+                        ? "bg-emerald-100 border-emerald-200 text-emerald-600"
+                        : "bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100"
+                    }`}
+                  >
+                    Fait ✅
+                  </button>
+                </div>
+              </div>
+
+              {/* SOIR */}
+              <div className="mb-6">
+                <p className="text-sm font-semibold text-slate-700 mb-3">🌙 Soir</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => {
+                      saveDailyField("skinCareEvening", "not done");
+                    }}
+                    className={`rounded-2xl border px-4 py-4 text-sm font-bold transition active:scale-95 ${
+                      dailyLog.skinCareEvening === "not done"
+                        ? "bg-rose-100 border-rose-200 text-rose-600"
+                        : "bg-rose-50 border-rose-100 text-rose-600 hover:bg-rose-100"
+                    }`}
+                  >
+                    Non fait ❌
+                  </button>
+                  <button
+                    onClick={() => {
+                      saveDailyField("skinCareEvening", "done");
+                    }}
+                    className={`rounded-2xl border px-4 py-4 text-sm font-bold transition active:scale-95 ${
+                      dailyLog.skinCareEvening === "done"
+                        ? "bg-emerald-100 border-emerald-200 text-emerald-600"
+                        : "bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100"
+                    }`}
+                  >
+                    Fait ✅
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
                 <button
-                  onClick={() => {
-                    saveDailyField("skinCare", "not done");
-                    setModal(null);
-                  }}
-                  className="rounded-2xl bg-rose-50 border border-rose-100 px-4 py-6 text-sm font-bold text-rose-600 transition hover:bg-rose-100 active:scale-95"
+                  onClick={() => setModal(null)}
+                  className="flex-1 rounded-xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-200 active:scale-95"
                 >
-                  Non fait ❌
+                  Fermer
                 </button>
+              </div>
+            </>
+          )}
+
+          {modal.type === "supplement" && (
+            <>
+              <div className="text-center mb-6">
+                <h2 className="text-lg font-bold text-slate-900">Suppléments</h2>
+                <p className="text-xs text-slate-500">Vitamines & Minéraux</p>
+              </div>
+              
+              {/* MATIN */}
+              <div className="mb-6 pb-6 border-b border-slate-200">
+                <p className="text-sm font-semibold text-slate-700 mb-3">🌅 Matin</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => {
+                      saveDailyField("supplementMatin", "not done");
+                    }}
+                    className={`rounded-2xl border px-4 py-4 text-sm font-bold transition active:scale-95 ${
+                      dailyLog.supplementMatin === "not done"
+                        ? "bg-rose-100 border-rose-200 text-rose-600"
+                        : "bg-rose-50 border-rose-100 text-rose-600 hover:bg-rose-100"
+                    }`}
+                  >
+                    Oublié ❌
+                  </button>
+                  <button
+                    onClick={() => {
+                      saveDailyField("supplementMatin", "done");
+                    }}
+                    className={`rounded-2xl border px-4 py-4 text-sm font-bold transition active:scale-95 ${
+                      dailyLog.supplementMatin === "done"
+                        ? "bg-emerald-100 border-emerald-200 text-emerald-600"
+                        : "bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100"
+                    }`}
+                  >
+                    Pris ✅
+                  </button>
+                </div>
+              </div>
+
+              {/* SOIR */}
+              <div className="mb-6">
+                <p className="text-sm font-semibold text-slate-700 mb-3">🌙 Soir</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => {
+                      saveDailyField("supplementEvening", "not done");
+                    }}
+                    className={`rounded-2xl border px-4 py-4 text-sm font-bold transition active:scale-95 ${
+                      dailyLog.supplementEvening === "not done"
+                        ? "bg-rose-100 border-rose-200 text-rose-600"
+                        : "bg-rose-50 border-rose-100 text-rose-600 hover:bg-rose-100"
+                    }`}
+                  >
+                    Oublié ❌
+                  </button>
+                  <button
+                    onClick={() => {
+                      saveDailyField("supplementEvening", "done");
+                    }}
+                    className={`rounded-2xl border px-4 py-4 text-sm font-bold transition active:scale-95 ${
+                      dailyLog.supplementEvening === "done"
+                        ? "bg-emerald-100 border-emerald-200 text-emerald-600"
+                        : "bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100"
+                    }`}
+                  >
+                    Pris ✅
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
                 <button
-                  onClick={() => {
-                    saveDailyField("skinCare", "done");
-                    setModal(null);
-                  }}
-                  className="rounded-2xl bg-emerald-50 border border-emerald-100 px-4 py-6 text-sm font-bold text-emerald-600 transition hover:bg-emerald-100 active:scale-95"
+                  onClick={() => setModal(null)}
+                  className="flex-1 rounded-xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-200 active:scale-95"
                 >
-                  Fait ✅
+                  Fermer
                 </button>
               </div>
             </>
@@ -541,34 +676,7 @@ export default function InfoPage() {
             </>
           )}
 
-          {modal.type === "supplement" && (
-            <>
-              <div className="text-center mb-6">
-                <h2 className="text-lg font-bold text-slate-900">Suppléments</h2>
-                <p className="text-xs text-slate-500">Vitamines & Minéraux</p>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => {
-                    saveDailyField("supplement", "not done");
-                    setModal(null);
-                  }}
-                  className="rounded-2xl bg-rose-50 border border-rose-100 px-4 py-6 text-sm font-bold text-rose-600 transition hover:bg-rose-100 active:scale-95"
-                >
-                  Oublié ❌
-                </button>
-                <button
-                  onClick={() => {
-                    saveDailyField("supplement", "done");
-                    setModal(null);
-                  }}
-                  className="rounded-2xl bg-emerald-50 border border-emerald-100 px-4 py-6 text-sm font-bold text-emerald-600 transition hover:bg-emerald-100 active:scale-95"
-                >
-                  Pris ✅
-                </button>
-              </div>
-            </>
-          )}
+
 
           {modal.type === "anki" && (
             <>

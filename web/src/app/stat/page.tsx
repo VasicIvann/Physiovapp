@@ -37,9 +37,12 @@ type DailyLogEntry = {
   weight?: number;
   exercises?: string[];
   sleepTime?: string;
-  skinCare?: "done" | "not done";
+  skinCareMatin?: "done" | "not done";
+  skinCareEvening?: "done" | "not done";
   shower?: "done" | "not done";
-  supplement?: "done" | "not done";
+  supplementMatin?: "done" | "not done";
+  supplementEvening?: "done" | "not done";
+  anki?: "done" | "not done";
   nutritionCalorieScore?: number;
   nutritionProteinScore?: number;
   nutritionQualityScore?: number;
@@ -102,7 +105,25 @@ const buildMetricValue = (metric: MetricKey, entry?: DailyLogEntry) => {
     return parseSleepToHours(entry.sleepTime);
   }
 
-  if (metric === "skinCare" || metric === "shower" || metric === "supplement") {
+  if (metric === "skinCare") {
+    const matin = entry.skinCareMatin;
+    const evening = entry.skinCareEvening;
+    let count = 0;
+    if (matin === "done") count += 1;
+    if (evening === "done") count += 1;
+    return count;
+  }
+
+  if (metric === "supplement") {
+    const matin = entry.supplementMatin;
+    const evening = entry.supplementEvening;
+    let count = 0;
+    if (matin === "done") count += 1;
+    if (evening === "done") count += 1;
+    return count;
+  }
+
+  if (metric === "shower" || metric === "anki") {
     const value = entry[metric];
     if (value !== "done" && value !== "not done") return null;
     return value === "done" ? 1 : 0;
