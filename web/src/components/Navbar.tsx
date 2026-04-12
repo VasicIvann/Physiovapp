@@ -24,23 +24,25 @@ export function Navbar() {
     const isActive = pathname === path;
     return `rounded-2xl p-2.5 transition-all duration-300 ${
       isActive 
-        ? "bg-indigo-50 text-indigo-600 shadow-sm ring-1 ring-indigo-100" 
-        : "text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50"
+        ? "bg-gradient-to-br from-cyan-500/30 to-emerald-500/30 text-cyan-200 shadow-sm ring-1 ring-cyan-400/40" 
+        : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/80"
     }`;
   };
 
   return (
-    <header className="sticky top-4 z-50 mx-auto w-full max-w-md px-4">
-      <div className="relative flex h-16 items-center justify-between rounded-3xl border border-white/60 bg-white/80 px-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl backdrop-saturate-150">
+    <header className="sticky top-3 z-50 mx-auto w-full max-w-md px-4">
+      <div className="relative flex h-16 items-center justify-between overflow-hidden rounded-3xl border border-slate-700/70 bg-slate-950/75 px-5 shadow-[0_12px_30px_rgba(2,6,23,0.55)] backdrop-blur-xl backdrop-saturate-150">
+        <div className="pointer-events-none absolute -left-8 -top-8 h-20 w-20 rounded-full bg-emerald-400/20 blur-xl" />
+        <div className="pointer-events-none absolute -right-8 -bottom-8 h-20 w-20 rounded-full bg-cyan-400/20 blur-xl" />
         
         {/* Logo Area */}
-        <Link href="/" className="flex items-center gap-3 transition-transform active:scale-95">
-          <div className="relative h-10 w-10 overflow-hidden rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-inner">
-            <img src="/physiovapp_v2.png" alt="Physiovapp" className="h-full w-full object-cover p-0.5 mix-blend-overlay" />
+        <Link href="/" className="relative flex items-center gap-3 transition-transform active:scale-95">
+          <div className="relative h-10 w-10 overflow-hidden rounded-xl bg-gradient-to-br from-emerald-500 via-cyan-500 to-blue-600 shadow-inner">
+            <img src="/physiovapp_v2.png" alt="Physiovapp" className="h-full w-full object-cover p-0.5 mix-blend-screen" />
           </div>
           <div className="flex flex-col">
-            <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">Welcome</p>
-            <p className="text-sm font-bold text-neutral-800 leading-none">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Welcome</p>
+            <p className="text-sm font-extrabold text-slate-100 leading-none">
               {displayName ? displayName.split(' ')[0] : 'Athlete'}
             </p>
           </div>

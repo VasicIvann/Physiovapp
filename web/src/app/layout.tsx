@@ -41,13 +41,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} bg-[#FAFAFA] text-neutral-900 antialiased selection:bg-indigo-500 selection:text-white`}
+        className={`${geistSans.variable} ${geistMono.variable} text-slate-100 antialiased selection:bg-cyan-500 selection:text-slate-950`}
       >
         <div className="min-h-screen relative flex flex-col">
           <Navbar />
           <ServiceWorkerRegistrar />
           {/* Padding top adjusted for floating navbar */}
-          <main className="flex-1 w-full max-w-md mx-auto px-5 pb-24 pt-6">
+          <main className="flex-1 w-full max-w-md mx-auto px-5 pb-24 pt-7">
             {children}
           </main>
         </div>

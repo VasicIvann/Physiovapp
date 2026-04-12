@@ -326,16 +326,16 @@ export default function StatPage() {
 
   if (!isFirebaseConfigured) {
     return (
-      <div className="rounded-3xl bg-white p-6 shadow-sm border border-neutral-100">
-        <p className="text-sm font-semibold text-rose-600">Configure Firebase pour afficher les statistiques en temps reel.</p>
+      <div className="rounded-3xl border border-rose-500/35 bg-gradient-to-br from-rose-950/70 to-orange-950/60 p-6 shadow-sm">
+        <p className="text-sm font-semibold text-rose-200">Configure Firebase pour afficher les statistiques en temps reel.</p>
       </div>
     );
   }
 
   if (!userId) {
     return (
-      <div className="rounded-3xl bg-white p-6 shadow-sm border border-neutral-100">
-        <p className="text-sm font-semibold text-neutral-900">Connecte-toi pour voir tes statistiques.</p>
+      <div className="rounded-3xl border border-slate-700/70 bg-slate-900/85 p-6 shadow-sm backdrop-blur-sm">
+        <p className="text-sm font-semibold text-slate-100">Connecte-toi pour voir tes statistiques.</p>
       </div>
     );
   }
@@ -344,17 +344,17 @@ export default function StatPage() {
     <div className="space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
       
       {/* --- Main Chart Section --- */}
-      <section className="rounded-3xl bg-white p-6 shadow-[0_2px_20px_rgba(0,0,0,0.04)] border border-neutral-100">
+      <section className="rounded-3xl border border-cyan-500/30 bg-gradient-to-br from-slate-900/95 via-slate-900 to-cyan-950/70 p-6 shadow-[0_14px_34px_rgba(2,6,23,0.52)]">
         <div className="flex flex-col gap-4">
           
           <div className="flex items-center justify-between">
-            <h1 className="text-lg font-bold text-neutral-900">Statistiques</h1>
+            <h1 className="text-lg font-black tracking-tight text-slate-100">Statistiques</h1>
             {/* Range Selector */}
             <div className="relative">
               <select
                 value={timeRange}
                 onChange={(e) => setTimeRange(e.target.value as TimeRangeKey)}
-                className="appearance-none rounded-xl border border-neutral-200 bg-neutral-50 pl-3 pr-8 py-2 text-xs font-semibold text-neutral-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer"
+                className="appearance-none rounded-xl border border-slate-700 bg-slate-900 pl-3 pr-8 py-2 text-xs font-semibold text-slate-100 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/25 transition-all cursor-pointer"
               >
                 {timeRangeOptions.map((option) => (
                   <option key={option.key} value={option.key}>
@@ -362,7 +362,7 @@ export default function StatPage() {
                   </option>
                 ))}
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-neutral-500">
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
                 <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </div>
             </div>
@@ -373,7 +373,7 @@ export default function StatPage() {
               <select
                 value={metric}
                 onChange={(e) => setMetric(e.target.value as MetricKey)}
-                className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm font-medium text-neutral-800 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-medium text-slate-100 shadow-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/25 transition-all"
               >
                 {metricOptions.map((option) => (
                   <option key={option.key} value={option.key}>
@@ -385,7 +385,7 @@ export default function StatPage() {
                 value={chartStyle}
                 onChange={(e) => setChartStyle(e.target.value as ChartStyleKey)}
                 disabled={metric === "nutritionGlobal"}
-                className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm font-medium text-neutral-800 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-medium text-slate-100 shadow-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/25 transition-all"
               >
                 {chartStyleOptions.map((option) => (
                   <option key={option.key} value={option.key}>
@@ -398,25 +398,25 @@ export default function StatPage() {
 
         <div className="mt-6">
           {loading ? (
-            <div className="flex h-64 items-center justify-center rounded-2xl bg-neutral-50">
-               <p className="text-sm text-neutral-400 animate-pulse">Chargement...</p>
+            <div className="flex h-64 items-center justify-center rounded-2xl bg-slate-900/75 ring-1 ring-slate-800">
+              <p className="text-sm text-slate-300 animate-pulse">Chargement...</p>
             </div>
           ) : (
             <div className="space-y-4">
               {!hasData && (
-                <div className="rounded-xl bg-neutral-50 p-3 text-center">
-                  <p className="text-xs text-neutral-500">Aucune donnée sur la période.</p>
+                <div className="rounded-xl bg-slate-900 p-3 text-center ring-1 ring-slate-700">
+                  <p className="text-xs text-slate-300">Aucune donnée sur la période.</p>
                 </div>
               )}
 
-              <div className="overflow-hidden rounded-2xl border border-neutral-100 bg-neutral-50">
-                <div className="flex items-center justify-between border-b border-neutral-100 bg-white px-4 py-3">
-                  <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+              <div className="overflow-hidden rounded-2xl border border-slate-700 bg-slate-950/70">
+                <div className="flex items-center justify-between border-b border-slate-700 bg-slate-900/75 px-4 py-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-300">
                     Graphique genere depuis Firestore
                   </p>
                   <div className="text-right">
-                    <p className="text-xs font-semibold text-neutral-400">{timeRange}</p>
-                    <p className="text-[10px] font-semibold text-neutral-400">
+                    <p className="text-xs font-semibold text-slate-400">{timeRange}</p>
+                    <p className="text-[10px] font-semibold text-slate-400">
                       Style: {chartStyleResolved}
                     </p>
                   </div>
@@ -546,19 +546,19 @@ export default function StatPage() {
       </section>
 
       {/* --- Metrics Summary --- */}
-      <section className="rounded-3xl bg-neutral-50 p-6 border border-neutral-100">
-        <h2 className="text-sm font-bold text-neutral-900 mb-4">Résumé {metric}</h2>
+      <section className="rounded-3xl border border-emerald-500/25 bg-gradient-to-br from-slate-900/95 to-emerald-950/70 p-6">
+        <h2 className="mb-4 text-sm font-bold text-slate-100">Résumé {metric}</h2>
 
         {metric === "nutritionGlobal" && nutritionLatest && (
           <div className="grid grid-cols-2 gap-3">
             {nutritionSeriesConfig.map((series) => {
               const value = nutritionLatest[series.key];
               return (
-                <div key={series.key} className="rounded-2xl border border-neutral-100 bg-white p-4 shadow-sm">
+                <div key={series.key} className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4 shadow-sm">
                   <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: series.color }}>
                     {series.label}
                   </p>
-                  <p className="mt-1 text-base font-bold text-neutral-900">
+                  <p className="mt-1 text-base font-bold text-slate-100">
                     {typeof value === "number" ? (Number.isInteger(value) ? value : value.toFixed(2)) : "-"}
                   </p>
                 </div>
@@ -568,36 +568,36 @@ export default function StatPage() {
         )}
 
         {metric !== "nutritionGlobal" && lastValue !== null && (
-          <div className="mb-3 rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-500">Derniere valeur</p>
-            <p className="mt-1 text-sm font-bold text-indigo-700">{formatMetricValue(lastValue)}</p>
+          <div className="mb-3 rounded-2xl border border-indigo-500/30 bg-indigo-950/35 px-4 py-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-300">Derniere valeur</p>
+            <p className="mt-1 text-sm font-bold text-indigo-100">{formatMetricValue(lastValue)}</p>
           </div>
         )}
 
         {metric !== "nutritionGlobal" && metricStats ? (
           <div className="grid grid-cols-3 gap-3">
-            <div className="flex flex-col items-center justify-center rounded-2xl bg-white p-4 shadow-sm border border-neutral-100">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Min</p>
-              <p className="mt-1 text-lg font-bold text-neutral-900">
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-700 bg-slate-900/80 p-4 shadow-sm">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Min</p>
+              <p className="mt-1 text-lg font-bold text-slate-100">
                 {formatMetricValue(metricStats.min)}
               </p>
             </div>
-            <div className="flex flex-col items-center justify-center rounded-2xl bg-white p-4 shadow-sm border border-neutral-100">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Max</p>
-              <p className="mt-1 text-lg font-bold text-neutral-900">
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-700 bg-slate-900/80 p-4 shadow-sm">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Max</p>
+              <p className="mt-1 text-lg font-bold text-slate-100">
                 {formatMetricValue(metricStats.max)}
               </p>
             </div>
-            <div className="flex flex-col items-center justify-center rounded-2xl bg-white p-4 shadow-sm border border-neutral-100">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Moy</p>
-              <p className="mt-1 text-lg font-bold text-indigo-600">
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-indigo-500/30 bg-slate-900/80 p-4 shadow-sm">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Moy</p>
+              <p className="mt-1 text-lg font-bold text-indigo-300">
                 {formatMetricValue(metricStats.avg)}
               </p>
             </div>
           </div>
         ) : metric !== "nutritionGlobal" ? (
-          <div className="flex items-center justify-center rounded-2xl bg-white p-6 border border-neutral-100 border-dashed">
-             <p className="text-xs text-neutral-400">Pas de données suffisantes pour calculer les moyennes.</p>
+          <div className="flex items-center justify-center rounded-2xl border border-slate-700 border-dashed bg-slate-900/75 p-6">
+             <p className="text-xs text-slate-300">Pas de données suffisantes pour calculer les moyennes.</p>
           </div>
         ) : null}
       </section>
@@ -605,7 +605,7 @@ export default function StatPage() {
       {/* Floating Back Button */}
       <Link
         href="/"
-        className="fixed bottom-6 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-neutral-900 text-white shadow-[0_8px_30px_rgba(0,0,0,0.3)] transition-transform hover:scale-110 active:scale-95 z-50"
+        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-cyan-600 to-emerald-600 text-slate-950 shadow-[0_8px_30px_rgba(0,0,0,0.4)] transition-transform hover:scale-110 active:scale-95"
       >
         <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10 19l-7-7m0 0l7-7m-7 7h18" strokeLinecap="round" strokeLinejoin="round"/></svg>
       </Link>

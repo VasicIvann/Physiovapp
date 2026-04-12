@@ -1021,18 +1021,20 @@ export default function InfoPage() {
     <div className="space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
       
       {/* --- En-tête --- */}
-      <div className="px-1 flex flex-col gap-1">
-        <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Journal Quotidien</h1>
-        <p className="text-neutral-500 text-sm">Complete tes routines pour aujourd hui.</p>
+      <div className="relative overflow-hidden rounded-3xl border border-cyan-500/35 bg-gradient-to-br from-slate-900 via-cyan-950 to-emerald-950 px-5 py-5 text-white shadow-[0_18px_38px_rgba(2,6,23,0.5)]">
+        <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-cyan-300/20 blur-2xl" />
+        <div className="pointer-events-none absolute -left-10 -bottom-10 h-28 w-28 rounded-full bg-emerald-300/20 blur-2xl" />
+        <h1 className="text-2xl font-black tracking-tight">Journal Quotidien</h1>
+        <p className="text-sm text-cyan-100/90">Complete tes routines pour aujourd hui.</p>
       </div>
 
       <button
         type="button"
         onClick={() => setModal({ type: "history" })}
-        className="mx-1 flex items-center justify-between rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-xs font-semibold text-neutral-700 shadow-sm transition hover:bg-neutral-50 active:scale-95"
+        className="mx-1 flex items-center justify-between rounded-2xl border border-slate-700/70 bg-slate-900/80 px-4 py-3 text-xs font-semibold text-slate-200 shadow-sm transition hover:bg-slate-800 active:scale-95"
       >
         <span>Gerer historique</span>
-        <span className="inline-flex items-center gap-1 text-[11px] text-neutral-400">
+        <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
           <svg
             viewBox="0 0 24 24"
             className="h-4 w-4"
@@ -1051,12 +1053,12 @@ export default function InfoPage() {
       </button>
 
       {!isFirebaseConfigured && (
-        <div className="rounded-2xl bg-amber-50 p-4 shadow-sm border border-amber-100">
-          <p className="text-sm font-bold text-amber-700">⚠️ Configure Firebase pour activer les sauvegardes.</p>
+        <div className="rounded-2xl border border-amber-500/35 bg-amber-950/40 p-4 shadow-sm">
+          <p className="text-sm font-bold text-amber-200">⚠️ Configure Firebase pour activer les sauvegardes.</p>
         </div>
       )}
       {error && (
-        <div className="rounded-2xl bg-rose-50 p-4 text-sm font-bold text-rose-700 border border-rose-100">
+        <div className="rounded-2xl border border-rose-500/35 bg-rose-950/40 p-4 text-sm font-bold text-rose-200">
           {error}
         </div>
       )}
@@ -1067,7 +1069,7 @@ export default function InfoPage() {
           <button
             key={card.key}
             onClick={card.onClick}
-            className="group relative flex h-28 flex-col items-center justify-center gap-3 rounded-3xl border border-neutral-100 bg-white p-4 text-center shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 active:scale-95"
+            className="group relative flex h-28 flex-col items-center justify-center gap-3 rounded-3xl border border-slate-700/70 bg-gradient-to-br from-slate-900/95 to-slate-800/90 p-4 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(2,6,23,0.5)] active:scale-95"
           >
             {/* Status indicator absolute positioned */}
             <div className="absolute top-3 right-3">
@@ -1075,15 +1077,15 @@ export default function InfoPage() {
             </div>
 
             {/* Icon centered (visually nicer) */}
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-neutral-50 transition-colors group-hover:bg-neutral-100">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-500/20 text-cyan-200 transition-colors group-hover:bg-emerald-500/20 group-hover:text-emerald-200">
               {card.icon || (
-                <svg viewBox="0 0 24 24" className="h-5 w-5 text-neutral-400" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/></svg>
+                <svg viewBox="0 0 24 24" className="h-5 w-5 text-slate-300" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/></svg>
               )}
             </div>
             
             <div className="flex flex-col items-center gap-0.5">
-              <span className="text-sm font-bold text-neutral-900">{card.title}</span>
-              <span className={`text-[10px] font-semibold uppercase tracking-wide ${card.ok ? "text-emerald-600" : "text-neutral-400"}`}>
+              <span className="text-sm font-bold text-slate-100">{card.title}</span>
+              <span className={`text-[10px] font-semibold uppercase tracking-wide ${card.ok ? "text-emerald-400" : "text-slate-400"}`}>
                 {card.badge}
               </span>
             </div>
@@ -1096,7 +1098,7 @@ export default function InfoPage() {
       {/* Floating Back Button */}
       <Link
         href="/"
-        className="fixed bottom-6 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-neutral-900 text-white shadow-[0_8px_30px_rgba(0,0,0,0.3)] transition-transform hover:scale-110 active:scale-95 z-50"
+        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-cyan-600 to-emerald-600 text-slate-950 shadow-[0_8px_30px_rgba(0,0,0,0.4)] transition-transform hover:scale-110 active:scale-95"
       >
         <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10 19l-7-7m0 0l7-7m-7 7h18" strokeLinecap="round" strokeLinejoin="round"/></svg>
       </Link>

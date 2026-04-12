@@ -39,9 +39,9 @@ type TodoFormState = {
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 const importanceConfig: Record<Importance, { label: string; text: string; bg: string; ring: string }> = {
-  low: { label: "Faible", text: "text-blue-700", bg: "bg-blue-50", ring: "ring-blue-200" },
-  medium: { label: "Moyen", text: "text-orange-700", bg: "bg-orange-50", ring: "ring-orange-200" },
-  high: { label: "Élevé", text: "text-rose-700", bg: "bg-rose-50", ring: "ring-rose-200" },
+  low: { label: "Faible", text: "text-blue-200", bg: "bg-blue-950/45", ring: "ring-blue-500/40" },
+  medium: { label: "Moyen", text: "text-orange-200", bg: "bg-orange-950/45", ring: "ring-orange-500/40" },
+  high: { label: "Élevé", text: "text-rose-200", bg: "bg-rose-950/45", ring: "ring-rose-500/40" },
 };
 
 const deadlineModeLabels: Record<DeadlineMode, string> = {
@@ -140,7 +140,8 @@ export default function TodoPage() {
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!auth || !db || !isFirebaseConfigured) return;
+    const firestore = db;
+    if (!auth || !firestore || !isFirebaseConfigured) return;
 
     let unsubscribeTodos: (() => void) | null = null;
 
@@ -154,7 +155,7 @@ export default function TodoPage() {
       }
 
       setUserId(user.uid);
-      const todosQuery = query(collection(db, "todos"), where("userId", "==", user.uid));
+      const todosQuery = query(collection(firestore, "todos"), where("userId", "==", user.uid));
       unsubscribeTodos?.();
       unsubscribeTodos = onSnapshot(todosQuery, (snapshot) => {
         const next = snapshot.docs
@@ -163,7 +164,7 @@ export default function TodoPage() {
             const title = typeof data.title === "string" ? data.title : "";
             if (!title.trim()) return null;
 
-            return {
+            const todo: TodoItem = {
               id: snapshotDoc.id,
               userId: typeof data.userId === "string" ? data.userId : user.uid,
               title,
@@ -180,7 +181,9 @@ export default function TodoPage() {
               completed: Boolean(data.completed),
               createdAt: data.createdAt instanceof Timestamp ? data.createdAt : null,
               completedAt: data.completedAt instanceof Timestamp ? data.completedAt : null,
-            } satisfies TodoItem;
+            };
+
+            return todo;
           })
           .filter((todo): todo is TodoItem => Boolean(todo));
 
@@ -395,12 +398,12 @@ export default function TodoPage() {
       : formatDeadline(todo);
 
     const cardTone = completed
-      ? "bg-slate-50 border-slate-200/80"
+      ? "bg-slate-900/70 border-slate-700"
       : todo.importance === "high"
-        ? "bg-rose-50 border-rose-200/80"
+        ? "bg-rose-950/35 border-rose-500/35"
         : todo.importance === "medium"
-          ? "bg-orange-50 border-orange-200/80"
-          : "bg-blue-50 border-blue-200/80";
+          ? "bg-orange-950/30 border-orange-500/35"
+          : "bg-blue-950/30 border-blue-500/35";
 
     return (
       <article
@@ -423,11 +426,11 @@ export default function TodoPage() {
                 <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${importance.bg} ${importance.text}`}>
                   {completed ? dueLabel : dueShort}
                 </span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                   {completed ? "Historique" : dueDateLabel}
                 </span>
               </div>
-              <h3 className={`mt-1 line-clamp-2 text-base font-extrabold leading-tight ${completed ? "text-slate-500 line-through" : "text-slate-900"}`}>
+              <h3 className={`mt-1 line-clamp-2 text-base font-extrabold leading-tight ${completed ? "text-slate-500 line-through" : "text-slate-100"}`}>
                 {todo.title}
               </h3>
             </div>
@@ -442,7 +445,7 @@ export default function TodoPage() {
               void completeTodo(todo.id);
             }}
             disabled={loading}
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-lg shadow-emerald-200 transition hover:bg-emerald-600 active:scale-95 disabled:opacity-50"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-900/30 transition hover:bg-emerald-400 active:scale-95 disabled:opacity-50"
             aria-label="Terminer la tâche"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -456,21 +459,21 @@ export default function TodoPage() {
 
   if (!isFirebaseConfigured) {
     return (
-      <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
-        <p className="text-sm font-semibold text-rose-600">Configure Firebase pour utiliser les tâches.</p>
+      <div className="rounded-3xl border border-rose-500/35 bg-gradient-to-br from-rose-950/70 to-orange-950/60 p-5 shadow-sm">
+        <p className="text-sm font-semibold text-rose-200">Configure Firebase pour utiliser les tâches.</p>
       </div>
     );
   }
 
   if (!userId) {
     return (
-      <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
-        <p className="text-sm font-semibold text-slate-900">Tu n es pas connecte.</p>
+      <div className="rounded-3xl border border-slate-700/70 bg-slate-900/85 p-5 shadow-sm ring-1 ring-slate-700">
+        <p className="text-sm font-semibold text-slate-100">Tu n es pas connecte.</p>
         <div className="mt-3 flex gap-3">
           <Link href="/signin" className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white">
             Sign in
           </Link>
-          <Link href="/signup" className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-800">
+          <Link href="/signup" className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200">
             Sign up
           </Link>
         </div>
@@ -480,16 +483,16 @@ export default function TodoPage() {
 
   return (
     <div className="space-y-6 pb-24 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <section className="relative overflow-hidden rounded-3xl border border-slate-200/80 bg-gradient-to-br from-emerald-500 via-green-500 to-lime-500 p-5 text-white shadow-[0_20px_45px_rgba(34,197,94,0.28)]">
-        <div className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full bg-white/15 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-10 -left-8 h-32 w-32 rounded-full bg-black/10 blur-3xl" />
+      <section className="relative overflow-hidden rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-slate-900 via-emerald-950 to-cyan-950 p-5 text-white shadow-[0_20px_45px_rgba(2,6,23,0.45)]">
+        <div className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full bg-cyan-400/15 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-10 -left-8 h-32 w-32 rounded-full bg-emerald-400/12 blur-3xl" />
 
         <div className="relative flex items-start justify-between gap-4">
           <div className="max-w-[70%]">
             <h1 className="text-2xl font-black tracking-tight">Tâches</h1>
             <p className="mt-1 text-sm font-medium text-emerald-50/90">Une seule priorité à la fois. Simple, claire, motivante.</p>
           </div>
-          <div className="rounded-2xl bg-white/15 px-3 py-2 text-right backdrop-blur-sm">
+          <div className="rounded-2xl bg-slate-900/40 px-3 py-2 text-right backdrop-blur-sm ring-1 ring-emerald-400/20">
             <p className="text-[10px] font-bold uppercase tracking-wider text-white/75">Aujourd’hui</p>
             <p className="text-lg font-black leading-tight">{counts.active}</p>
           </div>
@@ -498,9 +501,9 @@ export default function TodoPage() {
         <button
           type="button"
           onClick={openCreateModal}
-          className="relative mt-5 flex w-full items-center justify-center gap-3 rounded-3xl bg-white px-5 py-4 text-base font-black text-emerald-700 shadow-lg shadow-emerald-900/10 transition hover:-translate-y-0.5 hover:bg-emerald-50 active:scale-[0.99]"
+          className="relative mt-5 flex w-full items-center justify-center gap-3 rounded-3xl bg-slate-900/75 px-5 py-4 text-base font-black text-emerald-100 shadow-lg shadow-emerald-900/20 ring-1 ring-emerald-500/25 transition hover:-translate-y-0.5 hover:bg-slate-800 active:scale-[0.99]"
         >
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-md shadow-emerald-200">
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500 text-slate-950 shadow-md shadow-emerald-900/30">
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -509,15 +512,15 @@ export default function TodoPage() {
         </button>
 
         <div className="relative mt-4 grid grid-cols-3 gap-2">
-          <div className="rounded-2xl bg-white/15 px-3 py-2 backdrop-blur-sm">
+          <div className="rounded-2xl bg-slate-900/40 px-3 py-2 backdrop-blur-sm ring-1 ring-emerald-400/20">
             <p className="text-[10px] font-bold uppercase tracking-wider text-white/75">En cours</p>
             <p className="text-sm font-black">{counts.active}</p>
           </div>
-          <div className="rounded-2xl bg-white/15 px-3 py-2 backdrop-blur-sm">
+          <div className="rounded-2xl bg-slate-900/40 px-3 py-2 backdrop-blur-sm ring-1 ring-emerald-400/20">
             <p className="text-[10px] font-bold uppercase tracking-wider text-white/75">Urgentes</p>
             <p className="text-sm font-black">{counts.urgent}</p>
           </div>
-          <div className="rounded-2xl bg-white/15 px-3 py-2 backdrop-blur-sm">
+          <div className="rounded-2xl bg-slate-900/40 px-3 py-2 backdrop-blur-sm ring-1 ring-emerald-400/20">
             <p className="text-[10px] font-bold uppercase tracking-wider text-white/75">Terminées</p>
             <p className="text-sm font-black">{counts.done}</p>
           </div>
@@ -525,52 +528,52 @@ export default function TodoPage() {
       </section>
 
       {error && (
-        <div className="rounded-2xl border border-rose-100 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
+        <div className="rounded-2xl border border-rose-500/35 bg-rose-950/40 p-4 text-sm font-semibold text-rose-200">
           {error}
         </div>
       )}
 
       {message && (
-        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">
+        <div className="rounded-2xl border border-emerald-500/35 bg-emerald-950/40 p-4 text-sm font-semibold text-emerald-200">
           {message}
         </div>
       )}
 
-      <section className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
+      <section className="rounded-3xl border border-slate-700 bg-slate-900/80 p-5 shadow-[0_8px_30px_rgba(2,6,23,0.35)]">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-extrabold text-slate-900">Tâches à faire</h2>
+            <h2 className="text-sm font-extrabold text-slate-100">Tâches à faire</h2>
           </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+          <span className="rounded-full bg-slate-800 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-300 ring-1 ring-slate-700">
             {activeTodos.length} actives
           </span>
         </div>
 
         <div className="space-y-3">
           {activeTodos.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-              <p className="text-sm font-semibold text-slate-700">Aucune tâche active.</p>
-              <p className="mt-1 text-xs text-slate-500">Ajoute une tâche pour commencer.</p>
+            <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900 p-6 text-center">
+              <p className="text-sm font-semibold text-slate-200">Aucune tâche active.</p>
+              <p className="mt-1 text-xs text-slate-400">Ajoute une tâche pour commencer.</p>
             </div>
           )}
           {activeTodos.map((todo) => renderTodoCard(todo, false))}
         </div>
       </section>
 
-      <section className="rounded-3xl border border-slate-200/80 bg-slate-50/90 p-5 shadow-[0_8px_30px_rgba(15,23,42,0.06)]">
+      <section className="rounded-3xl border border-slate-700 bg-slate-900/75 p-5 shadow-[0_8px_30px_rgba(2,6,23,0.3)]">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-extrabold text-slate-900">Historique</h2>
+            <h2 className="text-sm font-extrabold text-slate-100">Historique</h2>
           </div>
-          <span className="rounded-full bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-500 ring-1 ring-slate-200/80">
+          <span className="rounded-full bg-slate-800 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-300 ring-1 ring-slate-700">
             {historyTodos.length} finies
           </span>
         </div>
 
         <div className="space-y-3">
           {historyTodos.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center">
-              <p className="text-sm font-semibold text-slate-700">Aucune tâche terminée pour le moment.</p>
+            <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900 p-6 text-center">
+              <p className="text-sm font-semibold text-slate-200">Aucune tâche terminée pour le moment.</p>
             </div>
           )}
           {historyTodos.map((todo) => renderTodoCard(todo, true))}
@@ -579,17 +582,17 @@ export default function TodoPage() {
 
       {modal?.type === "create" && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 px-4 py-4 backdrop-blur-sm sm:items-center">
-          <div className="w-full max-w-xl rounded-[2rem] bg-white p-5 shadow-2xl ring-1 ring-black/5 animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-xl rounded-[2rem] bg-slate-900 p-5 shadow-2xl ring-1 ring-slate-700 animate-in zoom-in-95 duration-200">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-600">Nouvelle tâche</p>
-                <h3 className="text-xl font-black text-slate-900">Donne-toi une action claire</h3>
-                <p className="text-xs font-medium text-slate-500">Choisis une priorité, une deadline et un titre simple.</p>
+                <h3 className="text-xl font-black text-slate-100">Donne-toi une action claire</h3>
+                <p className="text-xs font-medium text-slate-400">Choisis une priorité, une deadline et un titre simple.</p>
               </div>
               <button
                 type="button"
                 onClick={closeModal}
-                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 transition hover:bg-slate-200"
+                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-800 text-slate-300 transition hover:bg-slate-700"
                 aria-label="Fermer"
               >
                 ✕
@@ -598,7 +601,7 @@ export default function TodoPage() {
 
             <div className="mt-5 space-y-5">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Importance</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Importance</p>
                 <div className="mt-2 grid grid-cols-3 gap-2">
                   {(["low", "medium", "high"] as Importance[]).map((importance) => {
                     const config = importanceConfig[importance];
@@ -609,7 +612,7 @@ export default function TodoPage() {
                         type="button"
                         onClick={() => setForm((prev) => ({ ...prev, importance }))}
                         className={`rounded-2xl border px-3 py-3 text-sm font-bold transition active:scale-95 ${
-                          selected ? `${config.bg} ring-2 ${config.ring} ${config.text}` : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                          selected ? `${config.bg} ring-2 ${config.ring} ${config.text}` : "border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800"
                         }`}
                       >
                         {config.label}
@@ -620,7 +623,7 @@ export default function TodoPage() {
               </div>
 
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Deadline</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Deadline</p>
                 <div className="mt-2 grid grid-cols-3 gap-2">
                   {(["none", "date", "datetime"] as DeadlineMode[]).map((mode) => {
                     const selected = form.deadlineMode === mode;
@@ -630,7 +633,7 @@ export default function TodoPage() {
                         type="button"
                         onClick={() => setForm((prev) => ({ ...prev, deadlineMode: mode }))}
                         className={`rounded-2xl border px-3 py-3 text-sm font-bold transition active:scale-95 ${
-                          selected ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                          selected ? "border-emerald-500/40 bg-emerald-950/35 text-emerald-200" : "border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800"
                         }`}
                       >
                         {deadlineModeLabels[mode]}
@@ -640,49 +643,49 @@ export default function TodoPage() {
                 </div>
 
                 {form.deadlineMode === "date" && (
-                  <label className="mt-3 block text-sm font-medium text-slate-800">
+                  <label className="mt-3 block text-sm font-medium text-slate-200">
                     Jour
                     <input
                       type="date"
                       value={form.deadlineDate}
                       onChange={(event) => setForm((prev) => ({ ...prev, deadlineDate: event.target.value }))}
-                      className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+                      className="mt-1 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-slate-100 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
                     />
                   </label>
                 )}
 
                 {form.deadlineMode === "datetime" && (
-                  <label className="mt-3 block text-sm font-medium text-slate-800">
+                  <label className="mt-3 block text-sm font-medium text-slate-200">
                     Jour et heure
                     <input
                       type="datetime-local"
                       value={form.deadlineDateTime}
                       onChange={(event) => setForm((prev) => ({ ...prev, deadlineDateTime: event.target.value }))}
-                      className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+                      className="mt-1 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-slate-100 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
                     />
                   </label>
                 )}
               </div>
 
-              <label className="block text-sm font-medium text-slate-800">
+              <label className="block text-sm font-medium text-slate-200">
                 Titre
                 <input
                   type="text"
                   value={form.title}
                   onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
                   placeholder="Ex: Réviser le chapitre de biologie"
-                  className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+                  className="mt-1 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-slate-100 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
                 />
               </label>
 
-              <label className="block text-sm font-medium text-slate-800">
+              <label className="block text-sm font-medium text-slate-200">
                 Description optionnelle
                 <textarea
                   value={form.description}
                   onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
                   placeholder="Ajoute un contexte, une sous-tâche ou un détail utile..."
                   rows={4}
-                  className="mt-1 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+                  className="mt-1 w-full resize-none rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-slate-100 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
                 />
               </label>
 
@@ -692,7 +695,7 @@ export default function TodoPage() {
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 active:scale-95"
+                  className="flex-1 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-bold text-slate-200 transition hover:bg-slate-800 active:scale-95"
                 >
                   Annuler
                 </button>
@@ -700,7 +703,7 @@ export default function TodoPage() {
                   type="button"
                   onClick={() => void submitTodo()}
                   disabled={loading || !form.title.trim()}
-                  className="flex-1 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-emerald-200 transition hover:bg-emerald-600 active:scale-95 disabled:opacity-50"
+                  className="flex-1 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-black text-slate-950 shadow-lg shadow-emerald-900/30 transition hover:bg-emerald-400 active:scale-95 disabled:opacity-50"
                 >
                   Créer la tâche
                 </button>
@@ -712,16 +715,16 @@ export default function TodoPage() {
 
       {modal?.type === "details" && selectedTodo && detailsForm && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 px-4 py-4 backdrop-blur-sm sm:items-center">
-          <div className="w-full max-w-xl rounded-[2rem] bg-white p-5 shadow-2xl ring-1 ring-black/5 animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-xl rounded-[2rem] bg-slate-900 p-5 shadow-2xl ring-1 ring-slate-700 animate-in zoom-in-95 duration-200">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Modifier la tâche</p>
-                <h3 className="text-xl font-black text-slate-900">Paramètres</h3>
+                <h3 className="text-xl font-black text-slate-100">Paramètres</h3>
               </div>
               <button
                 type="button"
                 onClick={closeModal}
-                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 transition hover:bg-slate-200"
+                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-800 text-slate-300 transition hover:bg-slate-700"
                 aria-label="Fermer"
               >
                 ✕
@@ -730,7 +733,7 @@ export default function TodoPage() {
 
             <div className="mt-5 space-y-4">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Importance</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Importance</p>
                 <div className="mt-2 grid grid-cols-3 gap-2">
                   {(["low", "medium", "high"] as Importance[]).map((importance) => {
                     const config = importanceConfig[importance];
@@ -741,7 +744,7 @@ export default function TodoPage() {
                         type="button"
                         onClick={() => setDetailsForm((prev) => (prev ? { ...prev, importance } : prev))}
                         className={`rounded-2xl border px-3 py-3 text-sm font-bold transition active:scale-95 ${
-                          selected ? `${config.bg} ring-2 ${config.ring} ${config.text}` : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                          selected ? `${config.bg} ring-2 ${config.ring} ${config.text}` : "border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800"
                         }`}
                       >
                         {config.label}
@@ -752,7 +755,7 @@ export default function TodoPage() {
               </div>
 
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Deadline</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Deadline</p>
                 <div className="mt-2 grid grid-cols-3 gap-2">
                   {(["none", "date", "datetime"] as DeadlineMode[]).map((mode) => {
                     const selected = detailsForm.deadlineMode === mode;
@@ -762,7 +765,7 @@ export default function TodoPage() {
                         type="button"
                         onClick={() => setDetailsForm((prev) => (prev ? { ...prev, deadlineMode: mode } : prev))}
                         className={`rounded-2xl border px-3 py-3 text-sm font-bold transition active:scale-95 ${
-                          selected ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                          selected ? "border-emerald-500/40 bg-emerald-950/35 text-emerald-200" : "border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800"
                         }`}
                       >
                         {deadlineModeLabels[mode]}
@@ -772,7 +775,7 @@ export default function TodoPage() {
                 </div>
 
                 {detailsForm.deadlineMode === "date" && (
-                  <label className="mt-3 block text-sm font-medium text-slate-800">
+                  <label className="mt-3 block text-sm font-medium text-slate-200">
                     Jour
                     <input
                       type="date"
@@ -780,13 +783,13 @@ export default function TodoPage() {
                       onChange={(event) =>
                         setDetailsForm((prev) => (prev ? { ...prev, deadlineDate: event.target.value } : prev))
                       }
-                      className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+                      className="mt-1 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-slate-100 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
                     />
                   </label>
                 )}
 
                 {detailsForm.deadlineMode === "datetime" && (
-                  <label className="mt-3 block text-sm font-medium text-slate-800">
+                  <label className="mt-3 block text-sm font-medium text-slate-200">
                     Jour et heure
                     <input
                       type="datetime-local"
@@ -794,13 +797,13 @@ export default function TodoPage() {
                       onChange={(event) =>
                         setDetailsForm((prev) => (prev ? { ...prev, deadlineDateTime: event.target.value } : prev))
                       }
-                      className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+                      className="mt-1 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-slate-100 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
                     />
                   </label>
                 )}
               </div>
 
-              <label className="block text-sm font-medium text-slate-800">
+              <label className="block text-sm font-medium text-slate-200">
                 Titre
                 <input
                   type="text"
@@ -808,11 +811,11 @@ export default function TodoPage() {
                   onChange={(event) =>
                     setDetailsForm((prev) => (prev ? { ...prev, title: event.target.value } : prev))
                   }
-                  className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+                  className="mt-1 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-slate-100 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
                 />
               </label>
 
-              <label className="block text-sm font-medium text-slate-800">
+              <label className="block text-sm font-medium text-slate-200">
                 Description
                 <textarea
                   value={detailsForm.description}
@@ -820,20 +823,20 @@ export default function TodoPage() {
                     setDetailsForm((prev) => (prev ? { ...prev, description: event.target.value } : prev))
                   }
                   rows={3}
-                  className="mt-1 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+                  className="mt-1 w-full resize-none rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-slate-100 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
                 />
               </label>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                <div className="rounded-3xl bg-slate-800/80 p-4 ring-1 ring-slate-700">
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Créée le</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-900">
+                  <p className="mt-1 text-sm font-semibold text-slate-100">
                     {selectedTodo.createdAt ? formatDateTime(selectedTodo.createdAt.toDate()) : "-"}
                   </p>
                 </div>
-                <div className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                <div className="rounded-3xl bg-slate-800/80 p-4 ring-1 ring-slate-700">
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Terminée le</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-900">
+                  <p className="mt-1 text-sm font-semibold text-slate-100">
                     {selectedTodo.completedAt ? formatDateTime(selectedTodo.completedAt.toDate()) : "-"}
                   </p>
                 </div>
@@ -844,7 +847,7 @@ export default function TodoPage() {
                   type="button"
                   onClick={() => void saveTodoChanges()}
                   disabled={loading}
-                  className="w-full rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 active:scale-95 disabled:opacity-50"
+                  className="w-full rounded-2xl bg-indigo-500 px-4 py-3 text-sm font-black text-slate-950 shadow-lg shadow-indigo-900/30 transition hover:bg-indigo-400 active:scale-95 disabled:opacity-50"
                 >
                   Enregistrer les modifications
                 </button>
@@ -855,7 +858,7 @@ export default function TodoPage() {
                   type="button"
                   onClick={() => void completeTodo(selectedTodo.id)}
                   disabled={loading}
-                  className="w-full rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-emerald-200 transition hover:bg-emerald-600 active:scale-95 disabled:opacity-50"
+                  className="w-full rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-black text-slate-950 shadow-lg shadow-emerald-900/30 transition hover:bg-emerald-400 active:scale-95 disabled:opacity-50"
                 >
                   Terminer la tâche
                 </button>
@@ -866,7 +869,7 @@ export default function TodoPage() {
                   type="button"
                   onClick={() => void reopenTodo(selectedTodo.id)}
                   disabled={loading}
-                  className="w-full rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-amber-200 transition hover:bg-amber-600 active:scale-95 disabled:opacity-50"
+                  className="w-full rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-slate-950 shadow-lg shadow-amber-900/30 transition hover:bg-amber-400 active:scale-95 disabled:opacity-50"
                 >
                   Annuler la complétion
                 </button>
@@ -875,7 +878,7 @@ export default function TodoPage() {
               <button
                 type="button"
                 onClick={closeModal}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 active:scale-95"
+                className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-bold text-slate-200 transition hover:bg-slate-800 active:scale-95"
               >
                 Fermer
               </button>
@@ -886,7 +889,7 @@ export default function TodoPage() {
 
       <Link
         href="/"
-        className="fixed bottom-6 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-white shadow-[0_8px_30px_rgba(0,0,0,0.25)] transition-transform hover:scale-110 active:scale-95 z-50"
+        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-cyan-600 to-emerald-600 text-slate-950 shadow-[0_8px_30px_rgba(0,0,0,0.35)] transition-transform hover:scale-110 active:scale-95"
         aria-label="Retour à l'accueil"
       >
         <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.5">
