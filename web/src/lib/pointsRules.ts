@@ -2,8 +2,14 @@ export type DailyLogEntry = {
   date: string;
   weight?: number;
   skinCare?: "done" | "not done";
+  skinCareMatin?: "done" | "not done";
+  skinCareEvening?: "done" | "not done";
   shower?: "done" | "not done";
   supplement?: "done" | "not done";
+  supplementMatin?: "done" | "not done";
+  supplementEvening?: "done" | "not done";
+  anki?: "done" | "not done";
+  toothBrushing?: number;
   sleepTime?: string;
   exercises?: string[];
   nutritionCalorieScore?: number;
@@ -65,6 +71,12 @@ export const computeDailyPoints = (log: DailyLogEntry) => {
     else if (avg < 5) points -= 1;
   }
 
+  // Tooth brushing (journalier)
+  // 0 point si =1, +1 si >=2, -1 si =0
+  const brushingCount = typeof log.toothBrushing === "number" ? Math.max(0, log.toothBrushing) : 0;
+  if (brushingCount >= 2) points += 1;
+  else if (brushingCount === 0) points -= 1;
+
   return points;
 };
 
@@ -77,8 +89,17 @@ const computeWeeklyPoints = (logs: DailyLogEntry[]) => {
   logs.forEach((log) => {
     const weekKey = startOfWeekKey(log.date);
     const entry = byWeek.get(weekKey) ?? { skinCareDone: 0, supplementDone: 0, exercisesCount: 0 };
-    if (log.skinCare === "done") entry.skinCareDone += 1;
-    if (log.supplement === "done") entry.supplementDone += 1;
+
+    const skinCareDone =
+      log.skinCare === "done" ||
+      (log.skinCareMatin === "done" && log.skinCareEvening === "done");
+    if (skinCareDone) entry.skinCareDone += 1;
+
+    const supplementDone =
+      log.supplement === "done" ||
+      (log.supplementMatin === "done" && log.supplementEvening === "done");
+    if (supplementDone) entry.supplementDone += 1;
+
     entry.exercisesCount += Array.isArray(log.exercises) ? log.exercises.length : 0;
     byWeek.set(weekKey, entry);
   });

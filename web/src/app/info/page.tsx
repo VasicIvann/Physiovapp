@@ -18,6 +18,7 @@ type DailyLog = {
   skinCareMatin?: "done" | "not done";
   skinCareEvening?: "done" | "not done";
   shower?: "done" | "not done";
+  toothBrushing?: number;
   supplementMatin?: "done" | "not done";
   supplementEvening?: "done" | "not done";
   anki?: "done" | "not done";
@@ -34,6 +35,7 @@ type ModalState =
   | { type: "history" }
   | { type: "skinCare" }
   | { type: "shower" }
+  | { type: "toothBrushing" }
   | { type: "supplement" }
   | { type: "anki" }
   | { type: "sleep" }
@@ -85,6 +87,7 @@ export default function InfoPage() {
       skinCareMatin: data.skinCareMatin,
       skinCareEvening: data.skinCareEvening,
       shower: data.shower,
+      toothBrushing: typeof data.toothBrushing === "number" ? data.toothBrushing : 0,
       supplementMatin: data.supplementMatin,
       supplementEvening: data.supplementEvening,
       anki: data.anki,
@@ -191,6 +194,12 @@ export default function InfoPage() {
     }
   };
 
+  const adjustToothBrushing = async (delta: number) => {
+    const current = typeof dailyLog.toothBrushing === "number" ? dailyLog.toothBrushing : 0;
+    const next = Math.max(0, current + delta);
+    await saveDailyField("toothBrushing", next);
+  };
+
   const statusIcon = (condition: boolean) => <StatusIcon success={condition} />;
 
   const nutritionDone =
@@ -268,6 +277,22 @@ export default function InfoPage() {
         </svg>
       ),
       onClick: () => setModal({ type: "shower" }),
+    },
+    {
+      key: "toothBrushing",
+      title: "Brosser dent",
+      badge: `${dailyLog.toothBrushing ?? 0} fois`,
+      ok: (dailyLog.toothBrushing ?? 0) >= 2,
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5 text-teal-500" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M4 14c0-2 1.5-3 3-3h10c1.5 0 3 1 3 3" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M7 11V8a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v3" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M6 14v4a2 2 0 0 0 2 2h1" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M18 14v4a2 2 0 0 1-2 2h-1" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M10 20h4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ),
+      onClick: () => setModal({ type: "toothBrushing" }),
     },
     {
       key: "sleep",
@@ -671,6 +696,52 @@ export default function InfoPage() {
                   className="rounded-2xl bg-emerald-50 border border-emerald-100 px-4 py-6 text-sm font-bold text-emerald-600 transition hover:bg-emerald-100 active:scale-95"
                 >
                   Fait ✅
+                </button>
+              </div>
+            </>
+          )}
+
+          {modal.type === "toothBrushing" && (
+            <>
+              <div className="text-center mb-6">
+                <h2 className="text-lg font-bold text-slate-900">Brosser dent</h2>
+                <p className="text-xs text-slate-500">Nombre de brossages de la journee</p>
+              </div>
+
+              <div className="mb-6 rounded-2xl border border-teal-100 bg-teal-50/60 p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-teal-700">Compteur du jour</p>
+                <div className="mt-3 flex items-center justify-center gap-3">
+                  <button
+                    onClick={() => {
+                      void adjustToothBrushing(-1);
+                    }}
+                    disabled={loading || (dailyLog.toothBrushing ?? 0) <= 0}
+                    className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-xl font-bold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 active:scale-95 disabled:opacity-50"
+                  >
+                    -
+                  </button>
+                  <div className="min-w-24 rounded-xl bg-white px-4 py-2 text-center ring-1 ring-teal-200">
+                    <p className="text-2xl font-black text-slate-900">{dailyLog.toothBrushing ?? 0}</p>
+                    <p className="text-[11px] font-semibold text-slate-500">fois</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      void adjustToothBrushing(1);
+                    }}
+                    disabled={loading}
+                    className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-xl font-bold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 active:scale-95 disabled:opacity-50"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setModal(null)}
+                  className="flex-1 rounded-xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-200 active:scale-95"
+                >
+                  Fermer
                 </button>
               </div>
             </>

@@ -358,28 +358,53 @@ export default function PointsPage() {
       {/* --- Section RULES --- */}
       <section className="rounded-3xl bg-neutral-50 p-6 border border-neutral-100">
         <h2 className="text-sm font-bold text-neutral-900 mb-4">Règles du jeu</h2>
-        <ul className="space-y-3">
-          {[
-            { label: "Poids rempli", val: "+1", bad: "-1" },
-            { label: "Shower Done", val: "+1", bad: "-1" },
-            { label: "Sommeil > 7h30", val: "+1 / +2", bad: "-1 / -2" },
-            { label: "Nutrition (moy. > 7)", val: "+2", bad: "" },
-            { label: "Nutrition (moy. > 5)", val: "+1", bad: "" },
-            { label: "Nutrition (moy. < 5)", val: "", bad: "-1" },
-            { label: "Nutrition (moy. < 4)", val: "", bad: "-2" },
-            { label: "Skin Care (Hebdo)", val: "+4 / +7", bad: "-3 / -6" },
-            { label: "Supplement (Hebdo)", val: "+4", bad: "-4" },
-            { label: "Exercices (Hebdo)", val: "+3 / +6", bad: "-3 / -6" },
-          ].map((rule, i) => (
-            <li key={i} className="flex items-center justify-between text-xs rounded-xl bg-white p-3 shadow-sm border border-neutral-100">
-              <span className="font-semibold text-neutral-700">{rule.label}</span>
-              <div className="flex gap-2 font-mono">
-                <span className="text-emerald-600 bg-emerald-50 px-1.5 rounded">{rule.val}</span>
-                <span className="text-rose-600 bg-rose-50 px-1.5 rounded">{rule.bad}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <div className="space-y-6">
+          <div>
+            <h3 className="mb-3 inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-700">
+              Points journaliers
+            </h3>
+            <ul className="space-y-3">
+              {[
+                { label: "Poids rempli", val: "+1", bad: "-1" },
+                { label: "Douche faite", val: "+1", bad: "-1" },
+                { label: "Sommeil", val: "+1 / +2", bad: "-1 / -2" },
+                { label: "Nutrition (moyenne)", val: "+1 / +2", bad: "-1 / -2" },
+                { label: "Brosser dent = 0", val: "", bad: "-1" },
+                { label: "Brosser dent = 1", val: "0", bad: "0" },
+                { label: "Brosser dent >= 2", val: "+1", bad: "" },
+              ].map((rule, i) => (
+                <li key={`daily-${i}`} className="flex items-center justify-between text-xs rounded-xl bg-white p-3 shadow-sm border border-neutral-100">
+                  <span className="font-semibold text-neutral-700">{rule.label}</span>
+                  <div className="flex gap-2 font-mono">
+                    <span className="min-w-10 text-center text-emerald-600 bg-emerald-50 px-1.5 rounded">{rule.val || "-"}</span>
+                    <span className="min-w-10 text-center text-rose-600 bg-rose-50 px-1.5 rounded">{rule.bad || "-"}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="mb-3 inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-700">
+              Points hebdo
+            </h3>
+            <ul className="space-y-3">
+              {[
+                { label: "Skin care (jours complets)", val: "+4 / +7", bad: "-3 / -6" },
+                { label: "Suppléments (jours complets)", val: "+4", bad: "-4" },
+                { label: "Exercices", val: "+3 / +6", bad: "-3 / -6" },
+              ].map((rule, i) => (
+                <li key={`weekly-${i}`} className="flex items-center justify-between text-xs rounded-xl bg-white p-3 shadow-sm border border-neutral-100">
+                  <span className="font-semibold text-neutral-700">{rule.label}</span>
+                  <div className="flex gap-2 font-mono">
+                    <span className="min-w-10 text-center text-emerald-600 bg-emerald-50 px-1.5 rounded">{rule.val || "-"}</span>
+                    <span className="min-w-10 text-center text-rose-600 bg-rose-50 px-1.5 rounded">{rule.bad || "-"}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
       </section>
 
       {/* Floating Action Button */}

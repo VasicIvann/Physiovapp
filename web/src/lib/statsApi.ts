@@ -9,6 +9,7 @@ export type MetricKey =
   | "shower"
   | "supplement"
   | "anki"
+  | "toothBrushing"
   | "nutritionCalorieScore"
   | "nutritionProteinScore"
   | "nutritionQualityScore"
@@ -52,6 +53,7 @@ export const metricOptions: Array<{ key: MetricKey; label: string }> = [
   { key: "shower", label: "Shower" },
   { key: "supplement", label: "Supplement" },
   { key: "anki", label: "Anki" },
+  { key: "toothBrushing", label: "Brosser dent" },
   { key: "nutritionCalorieScore", label: "Nutrition calories" },
   { key: "nutritionProteinScore", label: "Nutrition proteines" },
   { key: "nutritionQualityScore", label: "Nutrition qualite" },
@@ -83,6 +85,7 @@ export const metricColors: Record<MetricKey, string> = {
   shower: "#06b6d4",
   supplement: "#22c55e",
   anki: "#3b82f6",
+  toothBrushing: "#0d9488",
   nutritionCalorieScore: "#f59e0b",
   nutritionProteinScore: "#f97316",
   nutritionQualityScore: "#ef4444",

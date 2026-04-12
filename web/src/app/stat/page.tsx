@@ -37,6 +37,7 @@ type DailyLogEntry = {
   weight?: number;
   exercises?: string[];
   sleepTime?: string;
+  toothBrushing?: number;
   skinCareMatin?: "done" | "not done";
   skinCareEvening?: "done" | "not done";
   shower?: "done" | "not done";
@@ -103,6 +104,10 @@ const buildMetricValue = (metric: MetricKey, entry?: DailyLogEntry) => {
 
   if (metric === "sleepTime") {
     return parseSleepToHours(entry.sleepTime);
+  }
+
+  if (metric === "toothBrushing") {
+    return typeof entry.toothBrushing === "number" ? entry.toothBrushing : 0;
   }
 
   if (metric === "skinCare") {
