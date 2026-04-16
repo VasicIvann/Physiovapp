@@ -13,7 +13,14 @@ import {
   Legend,
   Line,
   LineChart,
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
   ResponsiveContainer,
+  Scatter,
+  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
@@ -57,6 +64,29 @@ type ChartPoint = {
   nutritionProteinScore?: number | null;
   nutritionQualityScore?: number | null;
   foodHealthScore?: number | null;
+};
+
+type AiFeaturePoint = {
+  dateKey: string;
+  label: string;
+  sportVolume: number | null;
+  sleepHours: number | null;
+  sleepScore: number | null;
+  nutritionScore: number | null;
+  calorieScore: number | null;
+  proteinScore: number | null;
+  qualityScore: number | null;
+  hygieneScore: number | null;
+  focusScore: number | null;
+  formScore: number | null;
+  healthScore: number | null;
+  productivityScore: number | null;
+};
+
+type CorrelationResult = {
+  title: string;
+  coefficient: number;
+  sampleSize: number;
 };
 
 const timeRangeDays: Record<TimeRangeKey, number> = {
@@ -166,6 +196,113 @@ const nutritionSeriesConfig = [
   { key: "foodHealthScore", label: "Globale", color: "#4f46e5" },
 ] as const;
 
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const weightedScore = (items: Array<{ value: number | null; weight: number }>) => {
+  let weightedTotal = 0;
+  let weightTotal = 0;
+  items.forEach((item) => {
+    if (typeof item.value !== "number" || Number.isNaN(item.value)) return;
+    weightedTotal += item.value * item.weight;
+    weightTotal += item.weight;
+  });
+  if (weightTotal === 0) return null;
+  return clamp(weightedTotal / weightTotal, 0, 100);
+};
+
+const pearsonCorrelation = (xValues: number[], yValues: number[]) => {
+  const n = xValues.length;
+  if (n < 3) return null;
+
+  const meanX = xValues.reduce((acc, v) => acc + v, 0) / n;
+  const meanY = yValues.reduce((acc, v) => acc + v, 0) / n;
+
+  let numerator = 0;
+  let denomX = 0;
+  let denomY = 0;
+
+  for (let i = 0; i < n; i += 1) {
+    const dx = xValues[i] - meanX;
+    const dy = yValues[i] - meanY;
+    numerator += dx * dy;
+    denomX += dx * dx;
+    denomY += dy * dy;
+  }
+
+  const denominator = Math.sqrt(denomX * denomY);
+  if (denominator === 0) return null;
+  return numerator / denominator;
+};
+
+const buildCorrelation = (title: string, xSeries: Array<number | null>, ySeries: Array<number | null>): CorrelationResult | null => {
+  const xValues: number[] = [];
+  const yValues: number[] = [];
+
+  for (let i = 0; i < xSeries.length; i += 1) {
+    const x = xSeries[i];
+    const y = ySeries[i];
+    if (typeof x !== "number" || typeof y !== "number") continue;
+    xValues.push(x);
+    yValues.push(y);
+  }
+
+  const coefficient = pearsonCorrelation(xValues, yValues);
+  if (typeof coefficient !== "number") return null;
+  return { title, coefficient, sampleSize: xValues.length };
+};
+
+const trendPrediction = (series: Array<number | null>, min = 0, max = 100) => {
+  const points = series
+    .map((value, idx) => ({ x: idx, y: value }))
+    .filter((point): point is { x: number; y: number } => typeof point.y === "number");
+
+  if (points.length < 2) return null;
+
+  const n = points.length;
+  const sumX = points.reduce((acc, p) => acc + p.x, 0);
+  const sumY = points.reduce((acc, p) => acc + p.y, 0);
+  const sumXY = points.reduce((acc, p) => acc + p.x * p.y, 0);
+  const sumXX = points.reduce((acc, p) => acc + p.x * p.x, 0);
+
+  const denominator = n * sumXX - sumX * sumX;
+  if (denominator === 0) return clamp(points[points.length - 1].y, min, max);
+
+  const slope = (n * sumXY - sumX * sumY) / denominator;
+  const intercept = (sumY - slope * sumX) / n;
+  const nextX = points[points.length - 1].x + 1;
+  return clamp(slope * nextX + intercept, min, max);
+};
+
+const regressionLineFromScatter = (points: Array<{ x: number; y: number }>) => {
+  if (points.length < 2) return [] as Array<{ x: number; y: number }>;
+
+  const n = points.length;
+  const sumX = points.reduce((acc, p) => acc + p.x, 0);
+  const sumY = points.reduce((acc, p) => acc + p.y, 0);
+  const sumXY = points.reduce((acc, p) => acc + p.x * p.y, 0);
+  const sumXX = points.reduce((acc, p) => acc + p.x * p.x, 0);
+  const denominator = n * sumXX - sumX * sumX;
+  if (denominator === 0) return [] as Array<{ x: number; y: number }>;
+
+  const slope = (n * sumXY - sumX * sumY) / denominator;
+  const intercept = (sumY - slope * sumX) / n;
+  const xValues = points.map((p) => p.x);
+  const minX = Math.min(...xValues);
+  const maxX = Math.max(...xValues);
+
+  return [
+    { x: minX, y: slope * minX + intercept },
+    { x: maxX, y: slope * maxX + intercept },
+  ];
+};
+
+const correlationStrengthLabel = (coefficient: number) => {
+  const abs = Math.abs(coefficient);
+  if (abs >= 0.75) return "Forte";
+  if (abs >= 0.45) return "Moderee";
+  return "Faible";
+};
+
 export default function StatPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRangeKey>("7d");
@@ -252,6 +389,197 @@ export default function StatPage() {
       };
     });
   }, [dailyLogsByDate, metric, timeRange]);
+
+  const aiFeatures = useMemo<AiFeaturePoint[]>(() => {
+    const days = timeRangeDays[timeRange];
+    const labels = buildDateRange(days);
+
+    return labels.map((dateKey) => {
+      const entry = dailyLogsByDate[dateKey];
+      const exercisesCount = Array.isArray(entry?.exercises) ? entry.exercises.length : null;
+      const sportVolume = typeof exercisesCount === "number" ? clamp(exercisesCount * 25, 0, 100) : null;
+
+      const sleepHours = parseSleepToHours(entry?.sleepTime);
+      const sleepScore =
+        typeof sleepHours === "number" ? clamp(100 - Math.abs(sleepHours - 8) * 18, 0, 100) : null;
+
+      const calorie = typeof entry?.nutritionCalorieScore === "number" ? entry.nutritionCalorieScore : null;
+      const protein = typeof entry?.nutritionProteinScore === "number" ? entry.nutritionProteinScore : null;
+      const quality = typeof entry?.nutritionQualityScore === "number" ? entry.nutritionQualityScore : null;
+
+      const nutritionRaw =
+        typeof calorie === "number" && typeof protein === "number" && typeof quality === "number"
+          ? (calorie + protein + quality) / 3
+          : null;
+      const nutritionScore = typeof nutritionRaw === "number" ? clamp(nutritionRaw * 20, 0, 100) : null;
+      const calorieScore = typeof calorie === "number" ? clamp(calorie * 20, 0, 100) : null;
+      const proteinScore = typeof protein === "number" ? clamp(protein * 20, 0, 100) : null;
+      const qualityScore = typeof quality === "number" ? clamp(quality * 20, 0, 100) : null;
+
+      const showerScore = entry?.shower === "done" ? 100 : entry?.shower === "not done" ? 0 : null;
+      const toothScore =
+        typeof entry?.toothBrushing === "number" ? clamp((entry.toothBrushing / 2) * 100, 0, 100) : null;
+
+      let skinCount = 0;
+      if (entry?.skinCareMatin === "done") skinCount += 1;
+      if (entry?.skinCareEvening === "done") skinCount += 1;
+      const skinScore = (entry?.skinCareMatin || entry?.skinCareEvening) ? (skinCount / 2) * 100 : null;
+
+      let supplementCount = 0;
+      if (entry?.supplementMatin === "done") supplementCount += 1;
+      if (entry?.supplementEvening === "done") supplementCount += 1;
+      const supplementScore = (entry?.supplementMatin || entry?.supplementEvening) ? (supplementCount / 2) * 100 : null;
+
+      const hygieneScore = weightedScore([
+        { value: showerScore, weight: 0.35 },
+        { value: toothScore, weight: 0.35 },
+        { value: skinScore, weight: 0.15 },
+        { value: supplementScore, weight: 0.15 },
+      ]);
+
+      const ankiScore = entry?.anki === "done" ? 100 : entry?.anki === "not done" ? 0 : null;
+      const focusScore = weightedScore([
+        { value: ankiScore, weight: 0.6 },
+        { value: sportVolume, weight: 0.2 },
+        { value: sleepScore, weight: 0.2 },
+      ]);
+
+      const formScore = weightedScore([
+        { value: sportVolume, weight: 0.45 },
+        { value: sleepScore, weight: 0.3 },
+        { value: nutritionScore, weight: 0.25 },
+      ]);
+
+      const healthScore = weightedScore([
+        { value: sleepScore, weight: 0.35 },
+        { value: nutritionScore, weight: 0.35 },
+        { value: hygieneScore, weight: 0.2 },
+        { value: sportVolume, weight: 0.1 },
+      ]);
+
+      const productivityScore = weightedScore([
+        { value: focusScore, weight: 0.5 },
+        { value: sleepScore, weight: 0.2 },
+        { value: nutritionScore, weight: 0.15 },
+        { value: hygieneScore, weight: 0.15 },
+      ]);
+
+      return {
+        dateKey,
+        label: formatDateLabel(dateKey),
+        sportVolume,
+        sleepHours,
+        sleepScore,
+        nutritionScore,
+        calorieScore,
+        proteinScore,
+        qualityScore,
+        hygieneScore,
+        focusScore,
+        formScore,
+        healthScore,
+        productivityScore,
+      };
+    });
+  }, [dailyLogsByDate, timeRange]);
+
+  const aiCorrelations = useMemo(() => {
+    const correlations = [
+      buildCorrelation(
+        "Sport vs score calories",
+        aiFeatures.map((p) => p.sportVolume),
+        aiFeatures.map((p) => p.calorieScore),
+      ),
+      buildCorrelation(
+        "Sport vs sommeil",
+        aiFeatures.map((p) => p.sportVolume),
+        aiFeatures.map((p) => p.sleepHours),
+      ),
+      buildCorrelation(
+        "Sommeil vs productivite",
+        aiFeatures.map((p) => p.sleepScore),
+        aiFeatures.map((p) => p.productivityScore),
+      ),
+      buildCorrelation(
+        "Nutrition vs sante",
+        aiFeatures.map((p) => p.nutritionScore),
+        aiFeatures.map((p) => p.healthScore),
+      ),
+      buildCorrelation(
+        "Focus vs productivite",
+        aiFeatures.map((p) => p.focusScore),
+        aiFeatures.map((p) => p.productivityScore),
+      ),
+      buildCorrelation(
+        "Sommeil vs forme",
+        aiFeatures.map((p) => p.sleepScore),
+        aiFeatures.map((p) => p.formScore),
+      ),
+    ]
+      .filter((item): item is CorrelationResult => Boolean(item))
+      .sort((a, b) => Math.abs(b.coefficient) - Math.abs(a.coefficient));
+
+    return correlations.slice(0, 4);
+  }, [aiFeatures]);
+
+  const aiPredictions = useMemo(() => {
+    const formPrediction = trendPrediction(aiFeatures.map((p) => p.formScore));
+    const healthPrediction = trendPrediction(aiFeatures.map((p) => p.healthScore));
+    const productivityPrediction = trendPrediction(aiFeatures.map((p) => p.productivityScore));
+    return { formPrediction, healthPrediction, productivityPrediction };
+  }, [aiFeatures]);
+
+  const aiLatestScores = useMemo(() => {
+    for (let idx = aiFeatures.length - 1; idx >= 0; idx -= 1) {
+      const point = aiFeatures[idx];
+      if (
+        typeof point.formScore === "number" ||
+        typeof point.healthScore === "number" ||
+        typeof point.productivityScore === "number"
+      ) {
+        return point;
+      }
+    }
+    return null;
+  }, [aiFeatures]);
+
+  const aiRadarData = useMemo(
+    () => [
+      { metric: "Forme", score: aiLatestScores?.formScore ?? 0 },
+      { metric: "Sante", score: aiLatestScores?.healthScore ?? 0 },
+      { metric: "Productivite", score: aiLatestScores?.productivityScore ?? 0 },
+      { metric: "Sommeil", score: aiLatestScores?.sleepScore ?? 0 },
+      { metric: "Nutrition", score: aiLatestScores?.nutritionScore ?? 0 },
+      { metric: "Hygiene", score: aiLatestScores?.hygieneScore ?? 0 },
+    ],
+    [aiLatestScores],
+  );
+
+  const sportNutritionScatter = useMemo(
+    () =>
+      aiFeatures
+        .map((p) => ({ x: p.sportVolume, y: p.nutritionScore }))
+        .filter((p): p is { x: number; y: number } => typeof p.x === "number" && typeof p.y === "number"),
+    [aiFeatures],
+  );
+
+  const sleepProductivityScatter = useMemo(
+    () =>
+      aiFeatures
+        .map((p) => ({ x: p.sleepHours, y: p.productivityScore }))
+        .filter((p): p is { x: number; y: number } => typeof p.x === "number" && typeof p.y === "number"),
+    [aiFeatures],
+  );
+
+  const sportNutritionTrendLine = useMemo(
+    () => regressionLineFromScatter(sportNutritionScatter),
+    [sportNutritionScatter],
+  );
+
+  const sleepProductivityTrendLine = useMemo(
+    () => regressionLineFromScatter(sleepProductivityScatter),
+    [sleepProductivityScatter],
+  );
 
   const numericValues = useMemo(() => {
     if (metric === "nutritionGlobal") {
@@ -600,6 +928,156 @@ export default function StatPage() {
              <p className="text-xs text-slate-300">Pas de données suffisantes pour calculer les moyennes.</p>
           </div>
         ) : null}
+      </section>
+
+      <section className="space-y-4 rounded-3xl border border-cyan-500/20 bg-gradient-to-br from-slate-900/95 to-cyan-950/65 p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold text-slate-100">Analyse IA & Machine Learning</h2>
+            <p className="mt-1 text-xs text-slate-300">
+              Correlations et predictions sur les donnees reelles (sport mesure via volume d activites, sommeil, nutrition et routines).
+            </p>
+          </div>
+          <span className="rounded-full bg-cyan-500/15 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-cyan-200 ring-1 ring-cyan-500/30">
+            Beta IA
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-300">Forme predite</p>
+            <p className="mt-1 text-xl font-black text-slate-100">
+              {typeof aiPredictions.formPrediction === "number" ? aiPredictions.formPrediction.toFixed(1) : "-"}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">Sante predite</p>
+            <p className="mt-1 text-xl font-black text-slate-100">
+              {typeof aiPredictions.healthPrediction === "number" ? aiPredictions.healthPrediction.toFixed(1) : "-"}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-300">Productivite predite</p>
+            <p className="mt-1 text-xl font-black text-slate-100">
+              {typeof aiPredictions.productivityPrediction === "number" ? aiPredictions.productivityPrediction.toFixed(1) : "-"}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-3 lg:grid-cols-2">
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-300">Top correlations detectees</p>
+            {aiCorrelations.length === 0 ? (
+              <p className="mt-3 text-xs text-slate-400">Pas assez de donnees pour calculer des correlations fiables.</p>
+            ) : (
+              <div className="mt-3 space-y-2">
+                {aiCorrelations.map((item) => (
+                  <div key={item.title} className="rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2">
+                    <p className="text-xs font-semibold text-slate-200">{item.title}</p>
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      r = {item.coefficient.toFixed(2)} ({correlationStrengthLabel(item.coefficient)}), echantillons: {item.sampleSize}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-300">Radar des scores du dernier jour</p>
+            <div className="mt-2 h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart data={aiRadarData} outerRadius="75%">
+                  <PolarGrid stroke="#334155" />
+                  <PolarAngleAxis dataKey="metric" tick={{ fill: "#cbd5e1", fontSize: 11 }} />
+                  <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: "#64748b", fontSize: 10 }} />
+                  <Radar name="Score" dataKey="score" stroke="#22d3ee" fill="#22d3ee" fillOpacity={0.35} />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-3 lg:grid-cols-2">
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-300">Sport vs nutrition (scatter)</p>
+            <div className="mt-2 h-52">
+              <ResponsiveContainer width="100%" height="100%">
+                <ScatterChart margin={{ top: 12, right: 12, bottom: 12, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <XAxis
+                    type="number"
+                    dataKey="x"
+                    name="Sport"
+                    domain={[0, 100]}
+                    tick={{ fill: "#94a3b8", fontSize: 11 }}
+                  />
+                  <YAxis
+                    type="number"
+                    dataKey="y"
+                    name="Nutrition"
+                    domain={[0, 100]}
+                    tick={{ fill: "#94a3b8", fontSize: 11 }}
+                  />
+                  <Tooltip
+                    cursor={{ strokeDasharray: "3 3" }}
+                    contentStyle={{ borderRadius: 12, border: "1px solid #334155", backgroundColor: "#0f172a" }}
+                    labelStyle={{ color: "#e2e8f0", fontWeight: 700 }}
+                    formatter={(value: number | string, name: string) => [`${Number(value).toFixed(1)}`, name]}
+                  />
+                  <Scatter name="Jours" data={sportNutritionScatter} fill="#22d3ee" />
+                  <Scatter
+                    name="Tendance"
+                    data={sportNutritionTrendLine}
+                    line={{ stroke: "#38bdf8", strokeWidth: 2 }}
+                    fill="transparent"
+                  />
+                </ScatterChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-300">Sommeil vs productivite (scatter)</p>
+            <div className="mt-2 h-52">
+              <ResponsiveContainer width="100%" height="100%">
+                <ScatterChart margin={{ top: 12, right: 12, bottom: 12, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <XAxis
+                    type="number"
+                    dataKey="x"
+                    name="Sommeil"
+                    domain={[0, 12]}
+                    tick={{ fill: "#94a3b8", fontSize: 11 }}
+                  />
+                  <YAxis
+                    type="number"
+                    dataKey="y"
+                    name="Productivite"
+                    domain={[0, 100]}
+                    tick={{ fill: "#94a3b8", fontSize: 11 }}
+                  />
+                  <Tooltip
+                    cursor={{ strokeDasharray: "3 3" }}
+                    contentStyle={{ borderRadius: 12, border: "1px solid #334155", backgroundColor: "#0f172a" }}
+                    labelStyle={{ color: "#e2e8f0", fontWeight: 700 }}
+                    formatter={(value: number | string, name: string) => [
+                      name === "Sommeil" ? formatHoursToHHMM(Number(value)) : `${Number(value).toFixed(1)}`,
+                      name,
+                    ]}
+                  />
+                  <Scatter name="Jours" data={sleepProductivityScatter} fill="#10b981" />
+                  <Scatter
+                    name="Tendance"
+                    data={sleepProductivityTrendLine}
+                    line={{ stroke: "#34d399", strokeWidth: 2 }}
+                    fill="transparent"
+                  />
+                </ScatterChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* Floating Back Button */}
