@@ -35,8 +35,8 @@ export const computeProteinScore = (consumed: number, goal: number): number => {
   if (!goal || goal <= 0 || !Number.isFinite(consumed)) return 0;
   const pct = consumed / goal;
   if (pct >= 1.0) return 10;
-  if (pct <= 0) return 0;
-  return round1(clamp(10 * pct, 0, 10));
+  if (pct <= 0.5) return 0;
+  return round1(clamp(20 * (pct - 0.5), 0, 10));
 };
 
 export const hasNutritionGoals = (
