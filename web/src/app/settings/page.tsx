@@ -5,12 +5,12 @@ import Link from "next/link";
 import { doc, getDoc, setDoc, type DocumentData } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db, isFirebaseConfigured } from "@/lib/firebase";
+import type { GoalType } from "@/lib/nutritionScore";
 
 type NutritionGoals = {
+  goalType?: GoalType;
   calorieGoal?: number;
   proteinGoal?: number;
-  carbGoal?: number;
-  fatGoal?: number;
 };
 
 const formatGoal = (value: number | null | undefined, unit: string) => {
@@ -18,14 +18,23 @@ const formatGoal = (value: number | null | undefined, unit: string) => {
   return `${value} ${unit}`;
 };
 
+const formatGoalType = (value: GoalType | undefined) => {
+  if (value === "cut") return "Cut (perte)";
+  if (value === "bulk") return "Bulk (prise)";
+  return "Non defini";
+};
+
 export default function SettingsPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [goals, setGoals] = useState<NutritionGoals | null>(null);
-  const [formGoals, setFormGoals] = useState({
+  const [formGoals, setFormGoals] = useState<{
+    goalType: GoalType;
+    calories: string;
+    protein: string;
+  }>({
+    goalType: "cut",
     calories: "",
     protein: "",
-    carbs: "",
-    fat: "",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -44,7 +53,7 @@ export default function SettingsPage() {
       if (!user) {
         setUserId(null);
         setGoals(null);
-        setFormGoals({ calories: "", protein: "", carbs: "", fat: "" });
+        setFormGoals({ goalType: "cut", calories: "", protein: "" });
         setLoading(false);
         return;
       }
@@ -52,18 +61,18 @@ export default function SettingsPage() {
       try {
         const snap = await getDoc(doc(db!, "users", user.uid));
         const data = snap.data() as DocumentData | undefined;
+        const goalType: GoalType | undefined =
+          data?.goalType === "cut" || data?.goalType === "bulk" ? data.goalType : undefined;
         const nextGoals: NutritionGoals = {
+          goalType,
           calorieGoal: typeof data?.calorieGoal === "number" ? data.calorieGoal : undefined,
           proteinGoal: typeof data?.proteinGoal === "number" ? data.proteinGoal : undefined,
-          carbGoal: typeof data?.carbGoal === "number" ? data.carbGoal : undefined,
-          fatGoal: typeof data?.fatGoal === "number" ? data.fatGoal : undefined,
         };
         setGoals(nextGoals);
         setFormGoals({
+          goalType: nextGoals.goalType ?? "cut",
           calories: nextGoals.calorieGoal?.toString() ?? "",
           protein: nextGoals.proteinGoal?.toString() ?? "",
-          carbs: nextGoals.carbGoal?.toString() ?? "",
-          fat: nextGoals.fatGoal?.toString() ?? "",
         });
       } catch (err) {
         console.error(err);
@@ -83,27 +92,29 @@ export default function SettingsPage() {
     setMessage(null);
 
     try {
-      const payload: Record<string, number> = {};
-
       const caloriesValue = formGoals.calories.trim() === "" ? NaN : Number(formGoals.calories);
       const proteinValue = formGoals.protein.trim() === "" ? NaN : Number(formGoals.protein);
-      const carbsValue = formGoals.carbs.trim() === "" ? NaN : Number(formGoals.carbs);
-      const fatValue = formGoals.fat.trim() === "" ? NaN : Number(formGoals.fat);
 
-      if (!Number.isNaN(caloriesValue)) payload.calorieGoal = caloriesValue;
-      if (!Number.isNaN(proteinValue)) payload.proteinGoal = proteinValue;
-      if (!Number.isNaN(carbsValue)) payload.carbGoal = carbsValue;
-      if (!Number.isNaN(fatValue)) payload.fatGoal = fatValue;
+      if (Number.isNaN(caloriesValue) || caloriesValue <= 0) {
+        setError("Entre un objectif de calories valide.");
+        setSaving(false);
+        return;
+      }
+      if (Number.isNaN(proteinValue) || proteinValue <= 0) {
+        setError("Entre un objectif de proteines valide.");
+        setSaving(false);
+        return;
+      }
+
+      const payload = {
+        goalType: formGoals.goalType,
+        calorieGoal: caloriesValue,
+        proteinGoal: proteinValue,
+      };
 
       await setDoc(doc(db!, "users", userId), payload, { merge: true });
 
-      const nextGoals: NutritionGoals = {
-        calorieGoal: payload.calorieGoal,
-        proteinGoal: payload.proteinGoal,
-        carbGoal: payload.carbGoal,
-        fatGoal: payload.fatGoal,
-      };
-      setGoals(nextGoals);
+      setGoals(payload);
       setMessage("Objectifs enregistres.");
       setShowForm(false);
     } catch (err) {
@@ -150,12 +161,16 @@ export default function SettingsPage() {
     <div className="space-y-4">
       <section className="rounded-3xl border border-cyan-500/25 bg-gradient-to-br from-slate-900/95 via-slate-900 to-cyan-950/65 p-5 shadow-[0_14px_34px_rgba(2,6,23,0.52)]">
         <h1 className="text-lg font-bold text-slate-100">Parametres</h1>
-        <p className="mt-1 text-sm text-slate-300">Definis tes objectifs nutritionnels quotidiens.</p>
+        <p className="mt-1 text-sm text-slate-300">Definis ton mode et tes objectifs nutritionnels.</p>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-sm">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Objectifs actuels</p>
-            <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+            <div className="mt-2 grid grid-cols-1 gap-2 text-xs">
+              <div className="rounded-lg bg-slate-800 px-3 py-2 shadow-sm ring-1 ring-slate-700">
+                <p className="font-semibold text-slate-100">Mode</p>
+                <p className="text-slate-400">{formatGoalType(goals?.goalType)}</p>
+              </div>
               <div className="rounded-lg bg-slate-800 px-3 py-2 shadow-sm ring-1 ring-slate-700">
                 <p className="font-semibold text-slate-100">Calories</p>
                 <p className="text-slate-400">{formatGoal(goals?.calorieGoal ?? null, "kcal")}</p>
@@ -163,14 +178,6 @@ export default function SettingsPage() {
               <div className="rounded-lg bg-slate-800 px-3 py-2 shadow-sm ring-1 ring-slate-700">
                 <p className="font-semibold text-slate-100">Proteines</p>
                 <p className="text-slate-400">{formatGoal(goals?.proteinGoal ?? null, "g")}</p>
-              </div>
-              <div className="rounded-lg bg-slate-800 px-3 py-2 shadow-sm ring-1 ring-slate-700">
-                <p className="font-semibold text-slate-100">Glucides</p>
-                <p className="text-slate-400">{formatGoal(goals?.carbGoal ?? null, "g")}</p>
-              </div>
-              <div className="rounded-lg bg-slate-800 px-3 py-2 shadow-sm ring-1 ring-slate-700">
-                <p className="font-semibold text-slate-100">Lipides</p>
-                <p className="text-slate-400">{formatGoal(goals?.fatGoal ?? null, "g")}</p>
               </div>
             </div>
           </div>
@@ -181,13 +188,46 @@ export default function SettingsPage() {
               onClick={() => setShowForm((prev) => !prev)}
               className="inline-flex items-center justify-center rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-sm transition hover:bg-cyan-500 active:scale-95"
             >
-              Choisir les objectif
+              Choisir les objectifs
             </button>
           </div>
         </div>
 
         {showForm && (
-          <form className="mt-5 space-y-3" onSubmit={handleSubmit}>
+          <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
+            <div>
+              <p className="text-sm font-medium text-slate-200 mb-2">Mode</p>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFormGoals((prev) => ({ ...prev, goalType: "cut" }))}
+                  className={`rounded-xl border px-4 py-3 text-sm font-semibold transition active:scale-95 ${
+                    formGoals.goalType === "cut"
+                      ? "border-cyan-500 bg-cyan-600 text-slate-950"
+                      : "border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700"
+                  }`}
+                >
+                  Cut (perte)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormGoals((prev) => ({ ...prev, goalType: "bulk" }))}
+                  className={`rounded-xl border px-4 py-3 text-sm font-semibold transition active:scale-95 ${
+                    formGoals.goalType === "bulk"
+                      ? "border-cyan-500 bg-cyan-600 text-slate-950"
+                      : "border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700"
+                  }`}
+                >
+                  Bulk (prise)
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-slate-400">
+                {formGoals.goalType === "cut"
+                  ? "En cut, tu dois rester sous ton objectif calorique."
+                  : "En bulk, tu dois atteindre ou depasser legerement ton objectif calorique."}
+              </p>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <label className="block text-sm font-medium text-slate-200">
                 Calories / jour
@@ -209,30 +249,10 @@ export default function SettingsPage() {
                   className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/25"
                 />
               </label>
-              <label className="block text-sm font-medium text-slate-200">
-                Glucides / jour (g)
-                <input
-                  type="number"
-                  min={0}
-                  value={formGoals.carbs}
-                  onChange={(e) => setFormGoals((prev) => ({ ...prev, carbs: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/25"
-                />
-              </label>
-              <label className="block text-sm font-medium text-slate-200">
-                Lipides / jour (g)
-                <input
-                  type="number"
-                  min={0}
-                  value={formGoals.fat}
-                  onChange={(e) => setFormGoals((prev) => ({ ...prev, fat: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/25"
-                />
-              </label>
             </div>
 
-            {error && <p className="text-sm font-semibold text-rose-600">{error}</p>}
-            {message && <p className="text-sm font-semibold text-emerald-600">{message}</p>}
+            {error && <p className="text-sm font-semibold text-rose-400">{error}</p>}
+            {message && <p className="text-sm font-semibold text-emerald-400">{message}</p>}
 
             <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
@@ -255,6 +275,10 @@ export default function SettingsPage() {
               </button>
             </div>
           </form>
+        )}
+
+        {!showForm && message && (
+          <p className="mt-3 text-sm font-semibold text-emerald-400">{message}</p>
         )}
       </section>
     </div>

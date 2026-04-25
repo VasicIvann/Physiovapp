@@ -10,11 +10,7 @@ export type MetricKey =
   | "supplement"
   | "anki"
   | "toothBrushing"
-  | "nutritionCalorieScore"
-  | "nutritionProteinScore"
-  | "nutritionQualityScore"
-  | "foodHealthScore"
-  | "nutritionGlobal";
+  | "nutrition";
 
 export type StatsSeriesResponse = {
   metric: MetricKey;
@@ -54,11 +50,7 @@ export const metricOptions: Array<{ key: MetricKey; label: string }> = [
   { key: "supplement", label: "Supplement" },
   { key: "anki", label: "Anki" },
   { key: "toothBrushing", label: "Brosser dent" },
-  { key: "nutritionCalorieScore", label: "Nutrition calories" },
-  { key: "nutritionProteinScore", label: "Nutrition proteines" },
-  { key: "nutritionQualityScore", label: "Nutrition qualite" },
-  { key: "nutritionGlobal", label: "Nuttrition globale" },
-  { key: "foodHealthScore", label: "Food health score" },
+  { key: "nutrition", label: "Nutrition" },
 ];
 
 export const timeRangeOptions: Array<{ key: TimeRangeKey; label: string }> = [
@@ -86,9 +78,34 @@ export const metricColors: Record<MetricKey, string> = {
   supplement: "#22c55e",
   anki: "#3b82f6",
   toothBrushing: "#0d9488",
-  nutritionCalorieScore: "#f59e0b",
-  nutritionProteinScore: "#f97316",
-  nutritionQualityScore: "#ef4444",
-  nutritionGlobal: "#4f46e5",
-  foodHealthScore: "#4f46e5",
+  nutrition: "#4f46e5",
 };
+
+export type NutritionMode = "score" | "number";
+
+export type NutritionScoreSeriesKey = "calories" | "proteins" | "health" | "global";
+export type NutritionNumberSeriesKey = "calories" | "proteins" | "carbs" | "fat";
+
+export const nutritionScoreSeries: Array<{
+  key: NutritionScoreSeriesKey;
+  label: string;
+  color: string;
+}> = [
+  { key: "global", label: "Global (moy.)", color: "#4f46e5" },
+  { key: "calories", label: "Calories", color: "#f59e0b" },
+  { key: "proteins", label: "Proteines", color: "#f97316" },
+  { key: "health", label: "Health", color: "#ef4444" },
+];
+
+export const nutritionNumberSeries: Array<{
+  key: NutritionNumberSeriesKey;
+  label: string;
+  unit: string;
+  axis: "left" | "right";
+  color: string;
+}> = [
+  { key: "calories", label: "Calories", unit: "kcal", axis: "left", color: "#f59e0b" },
+  { key: "proteins", label: "Proteines", unit: "g", axis: "right", color: "#f97316" },
+  { key: "carbs", label: "Glucides", unit: "g", axis: "right", color: "#22c55e" },
+  { key: "fat", label: "Lipides", unit: "g", axis: "right", color: "#ef4444" },
+];

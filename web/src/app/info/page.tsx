@@ -12,6 +12,13 @@ import {
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db, isFirebaseConfigured } from "@/lib/firebase";
+import {
+  computeCalorieScore,
+  computeProteinScore,
+  hasNutritionGoals,
+  type GoalType,
+  type NutritionGoals,
+} from "@/lib/nutritionScore";
 
 type DailyLog = {
   weight?: number;
@@ -24,6 +31,10 @@ type DailyLog = {
   anki?: "done" | "not done";
   sleepTime?: string;
   exercises?: string[];
+  calories?: number;
+  proteins?: number;
+  carbs?: number;
+  fat?: number;
   nutritionCalorieScore?: number;
   nutritionProteinScore?: number;
   nutritionQualityScore?: number;
@@ -65,8 +76,11 @@ export default function InfoPage() {
   const [dailyLog, setDailyLog] = useState<DailyLog>({});
   const [modal, setModal] = useState<ModalState>(null);
   const [loading, setLoading] = useState(false);
-  const [formNutritionCalorie, setFormNutritionCalorie] = useState<number>(5);
-  const [formNutritionProtein, setFormNutritionProtein] = useState<number>(5);
+  const [nutritionGoals, setNutritionGoals] = useState<Partial<NutritionGoals> | null>(null);
+  const [formNutritionCalories, setFormNutritionCalories] = useState("");
+  const [formNutritionProteins, setFormNutritionProteins] = useState("");
+  const [formNutritionCarbs, setFormNutritionCarbs] = useState("");
+  const [formNutritionFat, setFormNutritionFat] = useState("");
   const [formNutritionQuality, setFormNutritionQuality] = useState<number>(5);
   const [formWeight, setFormWeight] = useState("");
   const [formSleep, setFormSleep] = useState("");
@@ -93,17 +107,41 @@ export default function InfoPage() {
       anki: data.anki,
       sleepTime: data.sleepTime,
       exercises: Array.isArray(data.exercises) ? data.exercises : [],
+      calories: typeof data.calories === "number" ? data.calories : undefined,
+      proteins: typeof data.proteins === "number" ? data.proteins : undefined,
+      carbs: typeof data.carbs === "number" ? data.carbs : undefined,
+      fat: typeof data.fat === "number" ? data.fat : undefined,
       nutritionCalorieScore: typeof data.nutritionCalorieScore === "number" ? data.nutritionCalorieScore : undefined,
       nutritionProteinScore: typeof data.nutritionProteinScore === "number" ? data.nutritionProteinScore : undefined,
       nutritionQualityScore: typeof data.nutritionQualityScore === "number" ? data.nutritionQualityScore : undefined,
     });
     if (data.weight) setFormWeight(String(data.weight));
     if (data.sleepTime) setFormSleep(String(data.sleepTime));
-    if (typeof data.nutritionCalorieScore === "number") setFormNutritionCalorie(data.nutritionCalorieScore);
-    if (typeof data.nutritionProteinScore === "number") setFormNutritionProtein(data.nutritionProteinScore);
+    setFormNutritionCalories(typeof data.calories === "number" ? String(data.calories) : "");
+    setFormNutritionProteins(typeof data.proteins === "number" ? String(data.proteins) : "");
+    setFormNutritionCarbs(typeof data.carbs === "number" ? String(data.carbs) : "");
+    setFormNutritionFat(typeof data.fat === "number" ? String(data.fat) : "");
     if (typeof data.nutritionQualityScore === "number") setFormNutritionQuality(data.nutritionQualityScore);
     if (Array.isArray(data.exercises) && data.exercises.length > 0) setFormExercise("");
   }, [dateKey]);
+
+  const fetchNutritionGoals = useCallback(async (uid: string) => {
+    if (!db) return;
+    try {
+      const snap = await getDoc(doc(db!, "users", uid));
+      const data = snap.data() as DocumentData | undefined;
+      const goalType: GoalType | undefined =
+        data?.goalType === "cut" || data?.goalType === "bulk" ? data.goalType : undefined;
+      setNutritionGoals({
+        goalType,
+        calorieGoal: typeof data?.calorieGoal === "number" ? data.calorieGoal : undefined,
+        proteinGoal: typeof data?.proteinGoal === "number" ? data.proteinGoal : undefined,
+      });
+    } catch (err) {
+      console.error(err);
+      setNutritionGoals(null);
+    }
+  }, []);
 
   useEffect(() => {
     if (!auth || !db || !isFirebaseConfigured) return;
@@ -111,13 +149,14 @@ export default function InfoPage() {
       if (!user) {
         setUserId(null);
         setDailyLog({});
+        setNutritionGoals(null);
         return;
       }
       setUserId(user.uid);
-      await fetchDailyLog(user.uid);
+      await Promise.all([fetchDailyLog(user.uid), fetchNutritionGoals(user.uid)]);
     });
     return () => unsub();
-  }, [dateKey, fetchDailyLog]);
+  }, [dateKey, fetchDailyLog, fetchNutritionGoals]);
 
   const ensureUser = () => {
     if (!auth || !db || !userId) {
@@ -167,9 +206,50 @@ export default function InfoPage() {
     }
   };
 
+  const parseNutritionInput = (value: string) => {
+    const trimmed = value.trim();
+    if (trimmed === "") return null;
+    const num = Number(trimmed);
+    return Number.isFinite(num) && num >= 0 ? num : null;
+  };
+
+  const previewCalories = parseNutritionInput(formNutritionCalories);
+  const previewProteins = parseNutritionInput(formNutritionProteins);
+
+  const previewCalorieScore =
+    previewCalories !== null && hasNutritionGoals(nutritionGoals)
+      ? computeCalorieScore(previewCalories, nutritionGoals.calorieGoal, nutritionGoals.goalType)
+      : null;
+  const previewProteinScore =
+    previewProteins !== null && hasNutritionGoals(nutritionGoals)
+      ? computeProteinScore(previewProteins, nutritionGoals.proteinGoal)
+      : null;
+
   const handleNutritionSubmit = async () => {
     if (!ensureUser()) return;
     if (!db || !userId) return;
+    if (!hasNutritionGoals(nutritionGoals)) {
+      setError("Configure tes objectifs nutritionnels dans les parametres avant de logger.");
+      return;
+    }
+
+    const caloriesValue = parseNutritionInput(formNutritionCalories);
+    const proteinsValue = parseNutritionInput(formNutritionProteins);
+    const carbsValue = parseNutritionInput(formNutritionCarbs);
+    const fatValue = parseNutritionInput(formNutritionFat);
+
+    if (caloriesValue === null || proteinsValue === null) {
+      setError("Entre des valeurs valides pour les calories et les proteines.");
+      return;
+    }
+
+    const calorieScore = computeCalorieScore(
+      caloriesValue,
+      nutritionGoals.calorieGoal,
+      nutritionGoals.goalType,
+    );
+    const proteinScore = computeProteinScore(proteinsValue, nutritionGoals.proteinGoal);
+
     setLoading(true);
     setError(null);
     try {
@@ -178,9 +258,16 @@ export default function InfoPage() {
         {
           userId,
           date: dateKey,
-          nutritionCalorieScore: formNutritionCalorie,
-          nutritionProteinScore: formNutritionProtein,
+          calories: caloriesValue,
+          proteins: proteinsValue,
+          carbs: carbsValue ?? null,
+          fat: fatValue ?? null,
+          nutritionCalorieScore: calorieScore,
+          nutritionProteinScore: proteinScore,
           nutritionQualityScore: formNutritionQuality,
+          nutritionGoalTypeUsed: nutritionGoals.goalType,
+          nutritionCalorieGoalUsed: nutritionGoals.calorieGoal,
+          nutritionProteinGoalUsed: nutritionGoals.proteinGoal,
         },
         { merge: true },
       );
@@ -393,81 +480,139 @@ export default function InfoPage() {
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-slate-900">Nutrition</h2>
-                  <p className="text-xs text-slate-500">Auto-évaluation du jour</p>
+                  <p className="text-xs text-slate-500">Macros et qualite du jour</p>
                 </div>
               </div>
 
-              <div className="space-y-5">
-                <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-sm font-semibold text-slate-700">Bon nombre de calories</span>
-                    <span className="text-sm font-bold text-amber-600">{formNutritionCalorie}/10</span>
+              {!hasNutritionGoals(nutritionGoals) ? (
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    Tu n as pas encore defini tes objectifs nutritionnels (mode + calories + proteines).
+                    Configure-les dans les parametres pour pouvoir logger ta nutrition.
                   </div>
-                  <input
-                    type="range"
-                    min={1}
-                    max={10}
-                    value={formNutritionCalorie}
-                    onChange={(e) => setFormNutritionCalorie(Number(e.target.value))}
-                    className="w-full accent-amber-500"
-                  />
-                  <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
-                    <span>1</span><span>10</span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setModal(null)}
+                      className="flex-1 rounded-xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-200 active:scale-95"
+                    >
+                      Fermer
+                    </button>
+                    <Link
+                      href="/settings"
+                      onClick={() => setModal(null)}
+                      className="flex-1 rounded-xl bg-slate-900 px-4 py-3 text-center text-sm font-bold text-white shadow-lg transition hover:bg-slate-800 active:scale-95"
+                    >
+                      Aller aux parametres
+                    </Link>
                   </div>
                 </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      Mode {nutritionGoals.goalType === "cut" ? "Cut" : "Bulk"} - objectifs
+                    </p>
+                    <p className="mt-1 text-xs text-slate-700">
+                      {nutritionGoals.calorieGoal} kcal &middot; {nutritionGoals.proteinGoal} g proteines
+                    </p>
+                  </div>
 
-                <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-sm font-semibold text-slate-700">Assez de protéines</span>
-                    <span className="text-sm font-bold text-amber-600">{formNutritionProtein}/10</span>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      Calories (kcal)
+                      <input
+                        type="number"
+                        min={0}
+                        value={formNutritionCalories}
+                        onChange={(e) => setFormNutritionCalories(e.target.value)}
+                        placeholder="0"
+                        className="mt-1 w-full rounded-xl border-0 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-900 shadow-inner ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                      />
+                      {previewCalorieScore !== null && (
+                        <span className="mt-1 inline-block text-[11px] font-bold text-amber-600">
+                          Score auto: {previewCalorieScore}/10
+                        </span>
+                      )}
+                    </label>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      Proteines (g)
+                      <input
+                        type="number"
+                        min={0}
+                        value={formNutritionProteins}
+                        onChange={(e) => setFormNutritionProteins(e.target.value)}
+                        placeholder="0"
+                        className="mt-1 w-full rounded-xl border-0 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-900 shadow-inner ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                      />
+                      {previewProteinScore !== null && (
+                        <span className="mt-1 inline-block text-[11px] font-bold text-amber-600">
+                          Score auto: {previewProteinScore}/10
+                        </span>
+                      )}
+                    </label>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      Glucides (g)
+                      <input
+                        type="number"
+                        min={0}
+                        value={formNutritionCarbs}
+                        onChange={(e) => setFormNutritionCarbs(e.target.value)}
+                        placeholder="0"
+                        className="mt-1 w-full rounded-xl border-0 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-900 shadow-inner ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                      />
+                    </label>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      Lipides (g)
+                      <input
+                        type="number"
+                        min={0}
+                        value={formNutritionFat}
+                        onChange={(e) => setFormNutritionFat(e.target.value)}
+                        placeholder="0"
+                        className="mt-1 w-full rounded-xl border-0 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-900 shadow-inner ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                      />
+                    </label>
                   </div>
-                  <input
-                    type="range"
-                    min={1}
-                    max={10}
-                    value={formNutritionProtein}
-                    onChange={(e) => setFormNutritionProtein(Number(e.target.value))}
-                    className="w-full accent-amber-500"
-                  />
-                  <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
-                    <span>1</span><span>10</span>
-                  </div>
-                </div>
 
-                <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-sm font-semibold text-slate-700">Qualité de la nourriture</span>
-                    <span className="text-sm font-bold text-amber-600">{formNutritionQuality}/10</span>
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm font-semibold text-slate-700">Health score (qualite)</span>
+                      <span className="text-sm font-bold text-amber-600">{formNutritionQuality}/10</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={1}
+                      max={10}
+                      value={formNutritionQuality}
+                      onChange={(e) => setFormNutritionQuality(Number(e.target.value))}
+                      className="w-full accent-amber-500"
+                    />
+                    <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                      <span>1</span><span>10</span>
+                    </div>
                   </div>
-                  <input
-                    type="range"
-                    min={1}
-                    max={10}
-                    value={formNutritionQuality}
-                    onChange={(e) => setFormNutritionQuality(Number(e.target.value))}
-                    className="w-full accent-amber-500"
-                  />
-                  <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
-                    <span>1</span><span>10</span>
-                  </div>
-                </div>
 
-                <div className="flex gap-2 pt-2">
-                  <button
-                    onClick={() => setModal(null)}
-                    className="flex-1 rounded-xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-200 active:scale-95"
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    onClick={handleNutritionSubmit}
-                    disabled={loading}
-                    className="flex-1 rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-slate-800 active:scale-95 disabled:opacity-50"
-                  >
-                    Enregistrer
-                  </button>
+                  {error && (
+                    <p className="text-sm font-semibold text-rose-600">{error}</p>
+                  )}
+
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      onClick={() => setModal(null)}
+                      className="flex-1 rounded-xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-200 active:scale-95"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      onClick={handleNutritionSubmit}
+                      disabled={loading}
+                      className="flex-1 rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-slate-800 active:scale-95 disabled:opacity-50"
+                    >
+                      Enregistrer
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </>
           )}
 
